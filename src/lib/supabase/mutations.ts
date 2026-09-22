@@ -1428,3 +1428,150 @@ export async function updateGarageSettings(
   revalidatePath("/");
   return {};
 }
+
+// ---- Estimates ----
+
+export interface EstimateLineInput {
+  lineType: "labour" | "part" | "other";
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface EstimateInput {
+  customerId: string;
+  vehicleId?: string;
+  issueDate: string;
+  validUntil?: string;
+  vatRate: number;
+  notes?: string;
+  lines: EstimateLineInput[];
+}
+
+function estimateTotals(lines: EstimateLineInput[], vatRate: number) {
+  const subtotal = lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+  const vatTotal = subtotal * (vatRate / 100);
+  return { subtotal, vatTotal, total: subtotal + vatTotal };
+}
+
+export async function createEstimate(input: EstimateInput): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const lines = input.lines.filter((l) => l.description.trim());
+  const { subtotal, vatTotal, total } = estimateTotals(lines, input.vatRate);
+
+  const { data: estimate, error } = await supabase
+    .from("estimates")
+    .insert({
+      garage_id: garageId,
+      customer_id: input.customerId,
+      vehicle_id: input.vehicleId || null,
+      issue_date: input.issueDate,
+      valid_until: input.validUntil || null,
+      notes: input.notes || null,
+      subtotal,
+      vat_total: vatTotal,
+      total,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  if (lines.length > 0) {
+    const { error: linesError } = await supabase.from("estimate_lines").insert(
+      lines.map((l, index) => ({
+        garage_id: garageId,
+        estimate_id: estimate.id,
+        line_type: l.lineType,
+        description: l.description,
+        quantity: l.quantity,
+        unit_price: l.unitPrice,
+        line_total: l.quantity * l.unitPrice,
+        sort_order: index,
+      }))
+    );
+    if (linesError) return { error: linesError.message };
+  }
+
+  revalidatePath("/estimates");
+  return {};
+}
+
+export async function updateEstimateStatus(
+  id: string,
+  status: "draft" | "sent" | "accepted" | "declined" | "expired"
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("estimates")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .neq("status", "booked");
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/estimates");
+  revalidatePath(`/estimates/${id}`);
+  return {};
+}
+
+export async function deleteEstimate(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("estimates")
+    .delete()
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .neq("status", "booked");
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/estimates");
+  return {};
+}
+
+export interface ConvertEstimateInput {
+  date: string;
+  time?: string;
+  durationMinutes?: number;
+  employeeId?: string;
+  jobType?: JobType;
+}
+
+/**
+ * Converts an estimate into a booking + job card, preserving every line as
+ * a snapshot. Runs as a single database transaction (convert_estimate_to_booking,
+ * migration 0023) so it can never partially apply and an estimate can never
+ * be converted twice, even under concurrent requests — the DB function
+ * locks the estimate row for the duration of the call.
+ */
+export async function convertEstimateToBooking(
+  estimateId: string,
+  input: ConvertEstimateInput
+): Promise<MutationResult & { jobId?: string }> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("convert_estimate_to_booking", {
+    p_estimate_id: estimateId,
+    p_date: input.date,
+    p_time: input.time || "09:00:00",
+    p_duration_minutes: input.durationMinutes ?? 60,
+    p_employee_id: input.employeeId || null,
+    p_job_type: input.jobType ?? "other",
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/estimates");
+  revalidatePath(`/estimates/${estimateId}`);
+  revalidatePath("/diary");
+  revalidatePath("/jobs");
+  return { jobId: data ?? undefined };
+}

@@ -357,6 +357,159 @@ export type Database = {
           },
         ]
       }
+      estimate_lines: {
+        Row: {
+          description: string
+          duration_minutes: number | null
+          estimate_id: string
+          garage_id: string
+          id: string
+          line_total: number
+          line_type: string
+          quantity: number
+          service_id: string | null
+          sort_order: number
+          unit_price: number
+          vat_rate: number | null
+        }
+        Insert: {
+          description: string
+          duration_minutes?: number | null
+          estimate_id: string
+          garage_id: string
+          id?: string
+          line_total?: number
+          line_type?: string
+          quantity?: number
+          service_id?: string | null
+          sort_order?: number
+          unit_price?: number
+          vat_rate?: number | null
+        }
+        Update: {
+          description?: string
+          duration_minutes?: number | null
+          estimate_id?: string
+          garage_id?: string
+          id?: string
+          line_total?: number
+          line_type?: string
+          quantity?: number
+          service_id?: string | null
+          sort_order?: number
+          unit_price?: number
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_lines_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_lines_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_lines_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "service_catalogue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimates: {
+        Row: {
+          booked_job_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          estimate_number: string | null
+          garage_id: string
+          id: string
+          issue_date: string
+          notes: string | null
+          status: string
+          subtotal: number
+          total: number
+          updated_at: string
+          valid_until: string | null
+          vat_total: number
+          vehicle_id: string | null
+        }
+        Insert: {
+          booked_job_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          estimate_number?: string | null
+          garage_id: string
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          valid_until?: string | null
+          vat_total?: number
+          vehicle_id?: string | null
+        }
+        Update: {
+          booked_job_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          estimate_number?: string | null
+          garage_id?: string
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          status?: string
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          valid_until?: string | null
+          vat_total?: number
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimates_booked_job_id_fkey"
+            columns: ["booked_job_id"]
+            isOneToOne: false
+            referencedRelation: "job_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimates_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimates_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimates_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       garage_closures: {
         Row: {
           closure_type: string
@@ -1281,6 +1434,17 @@ export type Database = {
           p_time: string
         }
         Returns: { starts_at: string; ends_at: string }
+      }
+      convert_estimate_to_booking: {
+        Args: {
+          p_date: string
+          p_duration_minutes: number
+          p_employee_id?: string | null
+          p_estimate_id: string
+          p_job_type?: Database["public"]["Enums"]["job_type"]
+          p_time: string
+        }
+        Returns: string
       }
       create_garage_with_owner: {
         Args: { p_garage_name: string }

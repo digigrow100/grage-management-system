@@ -8,6 +8,7 @@ import { RestoreCustomerBanner } from "@/components/customers/RestoreCustomerBan
 import {
   getBookingsForCustomer,
   getCustomer,
+  getEstimatesForCustomer,
   getInvoicesForCustomer,
   getJobsForCustomer,
   getVehiclesForCustomer,
@@ -28,6 +29,15 @@ const invoiceStatusTone: Record<string, "neutral" | "blue" | "green" | "amber" |
   overdue: "red",
 };
 
+const estimateStatusTone: Record<string, "neutral" | "blue" | "green" | "amber" | "red" | "purple"> = {
+  draft: "neutral",
+  sent: "blue",
+  accepted: "green",
+  declined: "red",
+  expired: "amber",
+  booked: "purple",
+};
+
 export default async function CustomerDetailPage({
   params,
 }: {
@@ -37,11 +47,12 @@ export default async function CustomerDetailPage({
   const customer = await getCustomer(id);
   if (!customer) notFound();
 
-  const [vehicles, bookings, jobs, custInvoices] = await Promise.all([
+  const [vehicles, bookings, jobs, custInvoices, custEstimates] = await Promise.all([
     getVehiclesForCustomer(customer.id),
     getBookingsForCustomer(customer.id),
     getJobsForCustomer(customer.id),
     getInvoicesForCustomer(customer.id),
+    getEstimatesForCustomer(customer.id),
   ]);
 
   const displayName = customerDisplayName(customer);
@@ -181,7 +192,7 @@ export default async function CustomerDetailPage({
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <Card>
             <CardHeader
               title="Booking & job history"
@@ -249,6 +260,41 @@ export default async function CustomerDetailPage({
                     </Link>
                   );
                 })
+              )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Estimates"
+              subtitle={`${custEstimates.length} total`}
+            />
+            <CardBody className="space-y-3">
+              {custEstimates.length === 0 ? (
+                <p className="text-sm text-slate-400">No estimates yet.</p>
+              ) : (
+                custEstimates.map((est) => (
+                  <Link
+                    key={est.id}
+                    href={`/estimates/${est.id}`}
+                    className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 hover:bg-slate-50"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {est.estimateNumber ?? "Estimate"}
+                      </p>
+                      <p className="text-xs text-slate-500">{formatDate(est.issueDate)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-slate-900">
+                        {formatCurrency(est.total)}
+                      </p>
+                      <Badge tone={estimateStatusTone[est.status]} className="capitalize">
+                        {est.status}
+                      </Badge>
+                    </div>
+                  </Link>
+                ))
               )}
             </CardBody>
           </Card>
