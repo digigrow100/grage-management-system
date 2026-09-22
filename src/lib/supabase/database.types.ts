@@ -1768,6 +1768,230 @@ export type Database = {
           },
         ]
       }
+      vhc_checks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          garage_id: string
+          id: string
+          job_id: string
+          notes: string | null
+          sent_at: string | null
+          started_at: string
+          status: string
+          technician_id: string | null
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          garage_id: string
+          id?: string
+          job_id: string
+          notes?: string | null
+          sent_at?: string | null
+          started_at?: string
+          status?: string
+          technician_id?: string | null
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          garage_id?: string
+          id?: string
+          job_id?: string
+          notes?: string | null
+          sent_at?: string | null
+          started_at?: string
+          status?: string
+          technician_id?: string | null
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vhc_checks_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vhc_checks_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "job_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vhc_checks_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vhc_checks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "vhc_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vhc_items: {
+        Row: {
+          category: string
+          created_at: string
+          estimate_line_id: string | null
+          garage_id: string
+          id: string
+          label: string
+          notes: string | null
+          photo_paths: string[]
+          result: string
+          sort_order: number
+          updated_at: string
+          vhc_check_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          estimate_line_id?: string | null
+          garage_id: string
+          id?: string
+          label: string
+          notes?: string | null
+          photo_paths?: string[]
+          result?: string
+          sort_order?: number
+          updated_at?: string
+          vhc_check_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          estimate_line_id?: string | null
+          garage_id?: string
+          id?: string
+          label?: string
+          notes?: string | null
+          photo_paths?: string[]
+          result?: string
+          sort_order?: number
+          updated_at?: string
+          vhc_check_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vhc_items_estimate_line_id_fkey"
+            columns: ["estimate_line_id"]
+            isOneToOne: false
+            referencedRelation: "estimate_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vhc_items_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vhc_items_vhc_check_id_fkey"
+            columns: ["vhc_check_id"]
+            isOneToOne: false
+            referencedRelation: "vhc_checks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vhc_template_items: {
+        Row: {
+          category: string
+          created_at: string
+          garage_id: string
+          id: string
+          label: string
+          sort_order: number
+          template_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          garage_id: string
+          id?: string
+          label: string
+          sort_order?: number
+          template_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          garage_id?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vhc_template_items_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vhc_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "vhc_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vhc_templates: {
+        Row: {
+          created_at: string
+          garage_id: string
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          garage_id: string
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          garage_id?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vhc_templates_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       warehouses: {
         Row: {
           address_line_1: string | null

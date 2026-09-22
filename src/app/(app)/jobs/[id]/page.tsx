@@ -10,7 +10,10 @@ import {
   getJobStatusHistory,
   getParts,
   getVehicle,
+  getVhcChecksForJob,
+  getVhcTemplates,
 } from "@/lib/supabase/queries";
+import { getCurrentGarageId } from "@/lib/supabase/garage";
 import { deleteJobCard } from "@/lib/supabase/mutations";
 import { jobLineTotal } from "@/lib/totals";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -21,6 +24,8 @@ import { JobTechnicianSelect } from "@/components/jobs/JobTechnicianSelect";
 import { EditJobLinesButton } from "@/components/jobs/EditJobLinesModal";
 import { JobDetailsForm } from "@/components/jobs/JobDetailsForm";
 import { JOB_STATUS_LABELS } from "@/lib/job-status";
+import { StartVhcCheckButton } from "@/components/vhc/StartVhcCheckButton";
+import { VhcCheckPanel } from "@/components/vhc/VhcCheckPanel";
 
 export default async function JobDetailPage({
   params,
@@ -31,14 +36,20 @@ export default async function JobDetailPage({
   const job = await getJob(id);
   if (!job) notFound();
 
-  const [customer, vehicle, employees, parts, statusHistory] = await Promise.all([
-    getCustomer(job.customerId),
-    job.vehicleId ? getVehicle(job.vehicleId) : Promise.resolve(undefined),
-    getEmployees(),
-    getParts(),
-    getJobStatusHistory(job.id),
-  ]);
+  const [customer, vehicle, employees, parts, statusHistory, vhcChecks, vhcTemplates, garageId] =
+    await Promise.all([
+      getCustomer(job.customerId),
+      job.vehicleId ? getVehicle(job.vehicleId) : Promise.resolve(undefined),
+      getEmployees(),
+      getParts(),
+      getJobStatusHistory(job.id),
+      getVhcChecksForJob(job.id),
+      getVhcTemplates(),
+      getCurrentGarageId(),
+    ]);
   const activeEmployees = employees.filter((e) => e.active);
+  const latestVhcCheck = vhcChecks[0];
+  const hasActiveVhcCheck = latestVhcCheck?.status === "in_progress";
   const { labour, partsTotal, total } = jobLineTotal(job);
 
   return (
@@ -198,6 +209,31 @@ export default async function JobDetailPage({
             </CardBody>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader
+            title="Vehicle Health Check"
+            subtitle={
+              vhcChecks.length === 0
+                ? "Not started"
+                : `${vhcChecks.length} check${vhcChecks.length === 1 ? "" : "s"} on this job`
+            }
+            action={
+              !hasActiveVhcCheck ? (
+                <StartVhcCheckButton jobId={job.id} templates={vhcTemplates} employees={activeEmployees} />
+              ) : undefined
+            }
+          />
+          <CardBody>
+            {latestVhcCheck ? (
+              <VhcCheckPanel check={latestVhcCheck} jobId={job.id} garageId={garageId} />
+            ) : (
+              <p className="text-sm text-slate-400">
+                No health check has been performed on this job yet.
+              </p>
+            )}
+          </CardBody>
+        </Card>
 
         <Card>
           <CardHeader
