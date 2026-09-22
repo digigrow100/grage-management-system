@@ -8,7 +8,10 @@ import type {
   EmployeeRole,
   Estimate,
   EstimateLine,
+  GarageClosure,
+  GarageOpeningHours,
   GarageSettings,
+  ServiceCatalogueItem,
   Invoice,
   InvoiceLineItem,
   JobCard,
@@ -16,9 +19,21 @@ import type {
   JobPartLine,
   JobStatusHistoryEntry,
   Part,
+  ProductType,
+  PurchaseOrder,
+  PurchaseOrderLine,
+  PurchaseOrderStatus,
   Reminder,
+  ReminderChannel,
+  ReminderSettings,
+  ReminderStatus,
+  ReminderType,
   ServiceDetails,
+  StockMovement,
+  StockMovementType,
+  Supplier,
   Vehicle,
+  Warehouse,
 } from "@/lib/types";
 
 type CustomerRow = Tables<"customers">;
@@ -37,6 +52,9 @@ type InvoiceRow = Tables<"invoices"> & {
 };
 type EstimateRow = Tables<"estimates"> & {
   estimate_lines: Tables<"estimate_lines">[];
+};
+type PurchaseOrderRow = Tables<"purchase_orders"> & {
+  purchase_order_lines: Tables<"purchase_order_lines">[];
 };
 
 function mapCustomer(row: CustomerRow): Customer {
@@ -104,11 +122,89 @@ function mapPart(row: PartRow): Part {
     sku: row.sku,
     name: row.name,
     supplier: row.supplier,
+    supplierId: row.supplier_id,
     category: row.category,
+    productType: (row.product_type as ProductType) ?? "part",
     stockLevel: row.stock_level,
     reorderLevel: row.reorder_level,
     costPrice: row.cost_price,
     sellPrice: row.sell_price,
+    defaultWarehouseId: row.default_warehouse_id,
+    tyreWidth: row.tyre_width,
+    tyreProfile: row.tyre_profile,
+    tyreRimSize: row.tyre_rim_size,
+    tyreLoadIndex: row.tyre_load_index,
+    tyreSpeedRating: row.tyre_speed_rating,
+  };
+}
+
+function mapSupplier(row: Tables<"suppliers">): Supplier {
+  return {
+    id: row.id,
+    name: row.name,
+    accountNumber: row.account_number,
+    contactName: row.contact_name,
+    email: row.email,
+    phone: row.phone,
+    addressLine1: row.address_line_1,
+    addressLine2: row.address_line_2,
+    city: row.city,
+    postcode: row.postcode,
+    notes: row.notes,
+  };
+}
+
+function mapWarehouse(row: Tables<"warehouses">): Warehouse {
+  return {
+    id: row.id,
+    name: row.name,
+    isDefault: row.is_default,
+    addressLine1: row.address_line_1,
+    addressLine2: row.address_line_2,
+    city: row.city,
+    postcode: row.postcode,
+    notes: row.notes,
+  };
+}
+
+function mapStockMovement(row: Tables<"stock_movements">): StockMovement {
+  return {
+    id: row.id,
+    partId: row.part_id,
+    warehouseId: row.warehouse_id,
+    movementType: row.movement_type as StockMovementType,
+    quantity: row.quantity,
+    unitCost: row.unit_cost,
+    referenceType: row.reference_type,
+    referenceId: row.reference_id,
+    notes: row.notes,
+    createdAt: row.created_at,
+  };
+}
+
+function mapPurchaseOrderLine(row: Tables<"purchase_order_lines">): PurchaseOrderLine {
+  return {
+    id: row.id,
+    partId: row.part_id,
+    description: row.description,
+    quantityOrdered: row.quantity_ordered,
+    quantityReceived: row.quantity_received,
+    unitCost: row.unit_cost,
+  };
+}
+
+function mapPurchaseOrder(row: PurchaseOrderRow): PurchaseOrder {
+  return {
+    id: row.id,
+    poNumber: row.po_number,
+    supplierId: row.supplier_id,
+    warehouseId: row.warehouse_id,
+    status: row.status as PurchaseOrderStatus,
+    orderDate: row.order_date,
+    expectedDate: row.expected_date,
+    notes: row.notes,
+    createdAt: row.created_at,
+    lines: (row.purchase_order_lines ?? []).map(mapPurchaseOrderLine),
   };
 }
 
@@ -164,6 +260,24 @@ function mapReminder(row: ReminderRow): Reminder {
     done: row.done,
     notes: row.notes,
     createdAt: row.created_at,
+    reminderType: row.reminder_type as ReminderType,
+    channel: row.channel as ReminderChannel,
+    status: row.status as ReminderStatus,
+    scheduledAt: row.scheduled_at,
+    sentAt: row.sent_at,
+    cancelledAt: row.cancelled_at,
+    errorMessage: row.error_message,
+  };
+}
+
+function mapReminderSettings(row: Tables<"reminder_settings">): ReminderSettings {
+  return {
+    id: row.id,
+    reminderType: row.reminder_type as ReminderType,
+    enabled: row.enabled,
+    daysBefore: row.days_before,
+    hoursBefore: row.hours_before,
+    emailEnabled: row.email_enabled,
   };
 }
 
@@ -177,6 +291,52 @@ function mapGarageSettings(row: GarageSettingsRow): GarageSettings {
     vatNumber: row.vat_number,
     defaultVatRate: row.default_vat_rate,
     invoicePrefix: row.invoice_prefix,
+    contactEmail: row.contact_email,
+    contactPhone: row.contact_phone,
+    logoUrl: row.logo_url,
+    timezone: row.timezone,
+    currency: row.currency,
+    vatMode: row.vat_mode as GarageSettings["vatMode"],
+    defaultLabourRate: row.default_labour_rate,
+    calendarStartHour: row.calendar_start_hour,
+    calendarEndHour: row.calendar_end_hour,
+    calendarSlotMinutes: row.calendar_slot_minutes,
+    allowOverlappingJobs: row.allow_overlapping_jobs,
+    smartGapMinutes: row.smart_gap_minutes,
+  };
+}
+
+function mapOpeningHours(row: Tables<"garage_opening_hours">): GarageOpeningHours {
+  return {
+    id: row.id,
+    weekday: row.weekday,
+    isClosed: row.is_closed,
+    is24Hours: row.is_24_hours,
+    opensAt: row.opens_at,
+    closesAt: row.closes_at,
+  };
+}
+
+function mapClosure(row: Tables<"garage_closures">): GarageClosure {
+  return {
+    id: row.id,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    title: row.title,
+    closureType: row.closure_type,
+  };
+}
+
+function mapServiceCatalogueItem(row: Tables<"service_catalogue">): ServiceCatalogueItem {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    category: row.category,
+    defaultDurationMinutes: row.default_duration_minutes,
+    defaultLabourPrice: row.default_labour_price,
+    vatRate: row.vat_rate,
+    active: row.active,
   };
 }
 
@@ -408,6 +568,79 @@ export async function getParts(): Promise<Part[]> {
   return (data ?? []).map(mapPart);
 }
 
+// ---- Suppliers ----
+
+export async function getSuppliers(): Promise<Supplier[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapSupplier);
+}
+
+// ---- Warehouses ----
+
+export async function getWarehouses(): Promise<Warehouse[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("warehouses")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapWarehouse);
+}
+
+// ---- Stock movements ----
+
+export async function getStockMovementsForPart(partId: string): Promise<StockMovement[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("stock_movements")
+    .select("*")
+    .eq("garage_id", garageId)
+    .eq("part_id", partId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapStockMovement);
+}
+
+// ---- Purchase orders ----
+
+const PURCHASE_ORDER_SELECT = "*, purchase_order_lines(*)";
+
+export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .select(PURCHASE_ORDER_SELECT)
+    .eq("garage_id", garageId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => mapPurchaseOrder(row as PurchaseOrderRow));
+}
+
+export async function getPurchaseOrder(id: string): Promise<PurchaseOrder | null> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .select(PURCHASE_ORDER_SELECT)
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapPurchaseOrder(data as PurchaseOrderRow) : null;
+}
+
 // ---- Bookings ----
 
 export async function getBookings(): Promise<Booking[]> {
@@ -637,6 +870,17 @@ export async function getReminders(): Promise<Reminder[]> {
   return (data ?? []).map(mapReminder);
 }
 
+export async function getReminderSettings(): Promise<ReminderSettings[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("reminder_settings")
+    .select("*")
+    .eq("garage_id", garageId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapReminderSettings);
+}
+
 // ---- Garage settings ----
 
 export async function getGarageSettings(): Promise<GarageSettings> {
@@ -659,4 +903,40 @@ export async function getGarageSettings(): Promise<GarageSettings> {
     defaultVatRate: 20,
     invoicePrefix: "INV",
   };
+}
+
+export async function getGarageOpeningHours(): Promise<GarageOpeningHours[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("garage_opening_hours")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("weekday", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapOpeningHours);
+}
+
+export async function getGarageClosures(): Promise<GarageClosure[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("garage_closures")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("starts_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapClosure);
+}
+
+export async function getServiceCatalogue(): Promise<ServiceCatalogueItem[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("service_catalogue")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapServiceCatalogueItem);
 }

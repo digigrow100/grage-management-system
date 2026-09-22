@@ -1089,47 +1089,254 @@ export type Database = {
           category: string | null
           cost_price: number
           created_at: string
+          default_warehouse_id: string | null
           garage_id: string
           id: string
           name: string
+          product_type: string
           reorder_level: number
           sell_price: number
           sku: string
           stock_level: number
           supplier: string | null
+          supplier_id: string | null
+          tyre_load_index: string | null
+          tyre_profile: number | null
+          tyre_rim_size: number | null
+          tyre_speed_rating: string | null
+          tyre_width: number | null
           updated_at: string
         }
         Insert: {
           category?: string | null
           cost_price?: number
           created_at?: string
+          default_warehouse_id?: string | null
           garage_id: string
           id?: string
           name: string
+          product_type?: string
           reorder_level?: number
           sell_price?: number
           sku: string
           stock_level?: number
           supplier?: string | null
+          supplier_id?: string | null
+          tyre_load_index?: string | null
+          tyre_profile?: number | null
+          tyre_rim_size?: number | null
+          tyre_speed_rating?: string | null
+          tyre_width?: number | null
           updated_at?: string
         }
         Update: {
           category?: string | null
           cost_price?: number
           created_at?: string
+          default_warehouse_id?: string | null
           garage_id?: string
           id?: string
           name?: string
+          product_type?: string
           reorder_level?: number
           sell_price?: number
           sku?: string
           stock_level?: number
           supplier?: string | null
+          supplier_id?: string | null
+          tyre_load_index?: string | null
+          tyre_profile?: number | null
+          tyre_rim_size?: number | null
+          tyre_speed_rating?: string | null
+          tyre_width?: number | null
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "parts_default_warehouse_id_fkey"
+            columns: ["default_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "parts_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_order_lines: {
+        Row: {
+          created_at: string
+          description: string
+          garage_id: string
+          id: string
+          part_id: string | null
+          purchase_order_id: string
+          quantity_ordered: number
+          quantity_received: number
+          unit_cost: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          garage_id: string
+          id?: string
+          part_id?: string | null
+          purchase_order_id: string
+          quantity_ordered?: number
+          quantity_received?: number
+          unit_cost?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          garage_id?: string
+          id?: string
+          part_id?: string | null
+          purchase_order_id?: string
+          quantity_ordered?: number
+          quantity_received?: number
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_lines_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_order_lines_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expected_date: string | null
+          garage_id: string
+          id: string
+          notes: string | null
+          order_date: string | null
+          po_number: string | null
+          status: string
+          supplier_id: string | null
+          updated_at: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expected_date?: string | null
+          garage_id: string
+          id?: string
+          notes?: string | null
+          order_date?: string | null
+          po_number?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expected_date?: string | null
+          garage_id?: string
+          id?: string
+          notes?: string | null
+          order_date?: string | null
+          po_number?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminder_settings: {
+        Row: {
+          created_at: string
+          days_before: number | null
+          email_enabled: boolean
+          enabled: boolean
+          garage_id: string
+          hours_before: number | null
+          id: string
+          reminder_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          days_before?: number | null
+          email_enabled?: boolean
+          enabled?: boolean
+          garage_id: string
+          hours_before?: number | null
+          id?: string
+          reminder_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          days_before?: number | null
+          email_enabled?: boolean
+          enabled?: boolean
+          garage_id?: string
+          hours_before?: number | null
+          id?: string
+          reminder_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_settings_garage_id_fkey"
             columns: ["garage_id"]
             isOneToOne: false
             referencedRelation: "garage_settings"
@@ -1139,35 +1346,59 @@ export type Database = {
       }
       reminders: {
         Row: {
+          cancelled_at: string | null
+          channel: string
           created_at: string
+          created_by: string | null
           customer_id: string | null
           done: boolean
           due_date: string
+          error_message: string | null
           garage_id: string
           id: string
           notes: string | null
+          reminder_type: string
+          scheduled_at: string | null
+          sent_at: string | null
+          status: string
           title: string
           vehicle_id: string | null
         }
         Insert: {
+          cancelled_at?: string | null
+          channel?: string
           created_at?: string
+          created_by?: string | null
           customer_id?: string | null
           done?: boolean
           due_date: string
+          error_message?: string | null
           garage_id: string
           id?: string
           notes?: string | null
+          reminder_type?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
           title: string
           vehicle_id?: string | null
         }
         Update: {
+          cancelled_at?: string | null
+          channel?: string
           created_at?: string
+          created_by?: string | null
           customer_id?: string | null
           done?: boolean
           due_date?: string
+          error_message?: string | null
           garage_id?: string
           id?: string
           notes?: string | null
+          reminder_type?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
           title?: string
           vehicle_id?: string | null
         }
@@ -1241,6 +1472,132 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "service_catalogue_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          garage_id: string
+          id: string
+          movement_type: string
+          notes: string | null
+          part_id: string
+          quantity: number
+          reference_id: string | null
+          reference_type: string | null
+          unit_cost: number | null
+          warehouse_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          garage_id: string
+          id?: string
+          movement_type: string
+          notes?: string | null
+          part_id: string
+          quantity: number
+          reference_id?: string | null
+          reference_type?: string | null
+          unit_cost?: number | null
+          warehouse_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          garage_id?: string
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          part_id?: string
+          quantity?: number
+          reference_id?: string | null
+          reference_type?: string | null
+          unit_cost?: number | null
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          account_number: string | null
+          address_line_1: string | null
+          address_line_2: string | null
+          city: string | null
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          garage_id: string
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          postcode: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_number?: string | null
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          garage_id: string
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          postcode?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string | null
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          garage_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          postcode?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_garage_id_fkey"
             columns: ["garage_id"]
             isOneToOne: false
             referencedRelation: "garage_settings"
@@ -1411,6 +1768,56 @@ export type Database = {
           },
         ]
       }
+      warehouses: {
+        Row: {
+          address_line_1: string | null
+          address_line_2: string | null
+          city: string | null
+          created_at: string
+          garage_id: string
+          id: string
+          is_default: boolean
+          name: string
+          notes: string | null
+          postcode: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          created_at?: string
+          garage_id: string
+          id?: string
+          is_default?: boolean
+          name: string
+          notes?: string | null
+          postcode?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_line_1?: string | null
+          address_line_2?: string | null
+          city?: string | null
+          created_at?: string
+          garage_id?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          notes?: string | null
+          postcode?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouses_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1452,6 +1859,10 @@ export type Database = {
       }
       is_garage_member: { Args: { target_garage_id: string }; Returns: boolean }
       next_invoice_number: { Args: never; Returns: string }
+      receive_purchase_order_line: {
+        Args: { p_line_id: string; p_quantity: number; p_unit_cost?: number }
+        Returns: undefined
+      }
     }
     Enums: {
       invoice_status: "draft" | "sent" | "paid" | "overdue" | "estimate"

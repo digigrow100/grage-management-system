@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BellPlus, Calendar, FileText, Plus, User } from "lucide-react";
+import { BellPlus, Calendar, FileText, MessageSquare, Plus, Tag, User } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FieldGroup, Select, TextArea, TextInput } from "@/components/ui/Field";
 import { addReminder } from "@/lib/supabase/mutations";
@@ -25,6 +25,12 @@ export function AddReminderButton({ customers }: { customers: Customer[] }) {
       dueDate: String(formData.get("dueDate") ?? ""),
       customerId: String(formData.get("customer") ?? "") || undefined,
       notes: String(formData.get("notes") ?? ""),
+      reminderType: formData.get("reminderType") as
+        | "mot"
+        | "service"
+        | "booking"
+        | "general",
+      channel: formData.get("channel") as "in_app" | "email" | "sms",
     });
 
     setSubmitting(false);
@@ -80,6 +86,24 @@ export function AddReminderButton({ customers }: { customers: Customer[] }) {
                     {c.name}
                   </option>
                 ))}
+              </Select>
+            </FieldGroup>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FieldGroup label="Type" htmlFor="reminderType">
+              <Select id="reminderType" name="reminderType" icon={Tag} defaultValue="general">
+                <option value="mot">MOT</option>
+                <option value="service">Service</option>
+                <option value="booking">Booking</option>
+                <option value="general">General</option>
+              </Select>
+            </FieldGroup>
+            <FieldGroup label="Channel" htmlFor="channel">
+              <Select id="channel" name="channel" icon={MessageSquare} defaultValue="in_app">
+                <option value="in_app">In-app</option>
+                <option value="email">Email</option>
+                <option value="sms">SMS</option>
               </Select>
             </FieldGroup>
           </div>

@@ -11,6 +11,8 @@ import type {
   JobPriority,
   JobStatus,
   JobType,
+  ProductType,
+  PurchaseOrderStatus,
   ServiceDetails,
 } from "@/lib/types";
 import { JOB_TYPE_LABELS } from "@/lib/job-types";
@@ -1146,11 +1148,39 @@ export interface PartInput {
   sku: string;
   name: string;
   supplier?: string;
+  supplierId?: string | null;
   category?: string;
+  productType?: ProductType;
   stockLevel: number;
   reorderLevel: number;
   costPrice: number;
   sellPrice: number;
+  defaultWarehouseId?: string | null;
+  tyreWidth?: number | null;
+  tyreProfile?: number | null;
+  tyreRimSize?: number | null;
+  tyreLoadIndex?: string | null;
+  tyreSpeedRating?: string | null;
+}
+
+function partWriteFields(input: PartInput) {
+  return {
+    sku: input.sku,
+    name: input.name,
+    supplier: input.supplier || null,
+    supplier_id: input.supplierId || null,
+    category: input.category || null,
+    product_type: input.productType ?? "part",
+    reorder_level: input.reorderLevel,
+    cost_price: input.costPrice,
+    sell_price: input.sellPrice,
+    default_warehouse_id: input.defaultWarehouseId || null,
+    tyre_width: input.tyreWidth ?? null,
+    tyre_profile: input.tyreProfile ?? null,
+    tyre_rim_size: input.tyreRimSize ?? null,
+    tyre_load_index: input.tyreLoadIndex || null,
+    tyre_speed_rating: input.tyreSpeedRating || null,
+  };
 }
 
 export async function addPart(input: PartInput): Promise<MutationResult> {
@@ -1159,14 +1189,8 @@ export async function addPart(input: PartInput): Promise<MutationResult> {
 
   const { error } = await supabase.from("parts").insert({
     garage_id: garageId,
-    sku: input.sku,
-    name: input.name,
-    supplier: input.supplier || null,
-    category: input.category || null,
     stock_level: input.stockLevel,
-    reorder_level: input.reorderLevel,
-    cost_price: input.costPrice,
-    sell_price: input.sellPrice,
+    ...partWriteFields(input),
   });
 
   if (error) return { error: error.message };
@@ -1185,16 +1209,7 @@ export async function updatePart(
 
   const { error } = await supabase
     .from("parts")
-    .update({
-      sku: input.sku,
-      name: input.name,
-      supplier: input.supplier || null,
-      category: input.category || null,
-      stock_level: input.stockLevel,
-      reorder_level: input.reorderLevel,
-      cost_price: input.costPrice,
-      sell_price: input.sellPrice,
-    })
+    .update(partWriteFields(input))
     .eq("id", id)
     .eq("garage_id", garageId);
 
@@ -1219,6 +1234,356 @@ export async function deletePart(id: string): Promise<MutationResult> {
 
   revalidatePath("/inventory");
   revalidatePath("/");
+  return {};
+}
+
+// ---- Stock adjustments ----
+
+export interface StockAdjustmentInput {
+  partId: string;
+  warehouseId?: string | null;
+  quantity: number;
+  notes?: string;
+}
+
+export async function adjustStock(
+  input: StockAdjustmentInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  if (input.quantity === 0) return { error: "Quantity must not be zero." };
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("stock_movements").insert({
+    garage_id: garageId,
+    part_id: input.partId,
+    warehouse_id: input.warehouseId || null,
+    movement_type: "adjustment",
+    quantity: input.quantity,
+    notes: input.notes || null,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/inventory");
+  return {};
+}
+
+// ---- Suppliers ----
+
+export interface SupplierInput {
+  name: string;
+  accountNumber?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  postcode?: string;
+  notes?: string;
+}
+
+function supplierWriteFields(input: SupplierInput) {
+  return {
+    name: input.name,
+    account_number: input.accountNumber || null,
+    contact_name: input.contactName || null,
+    email: input.email || null,
+    phone: input.phone || null,
+    address_line_1: input.addressLine1 || null,
+    address_line_2: input.addressLine2 || null,
+    city: input.city || null,
+    postcode: input.postcode || null,
+    notes: input.notes || null,
+  };
+}
+
+export async function addSupplier(input: SupplierInput): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("suppliers").insert({
+    garage_id: garageId,
+    ...supplierWriteFields(input),
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/suppliers");
+  revalidatePath("/inventory");
+  return {};
+}
+
+export async function updateSupplier(
+  id: string,
+  input: SupplierInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("suppliers")
+    .update(supplierWriteFields(input))
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/suppliers");
+  revalidatePath("/inventory");
+  return {};
+}
+
+export async function deleteSupplier(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("suppliers")
+    .delete()
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/suppliers");
+  return {};
+}
+
+// ---- Warehouses ----
+
+export interface WarehouseInput {
+  name: string;
+  isDefault?: boolean;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  postcode?: string;
+  notes?: string;
+}
+
+function warehouseWriteFields(input: WarehouseInput) {
+  return {
+    name: input.name,
+    is_default: input.isDefault ?? false,
+    address_line_1: input.addressLine1 || null,
+    address_line_2: input.addressLine2 || null,
+    city: input.city || null,
+    postcode: input.postcode || null,
+    notes: input.notes || null,
+  };
+}
+
+export async function addWarehouse(input: WarehouseInput): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("warehouses").insert({
+    garage_id: garageId,
+    ...warehouseWriteFields(input),
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/warehouses");
+  return {};
+}
+
+export async function updateWarehouse(
+  id: string,
+  input: WarehouseInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("warehouses")
+    .update(warehouseWriteFields(input))
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/warehouses");
+  return {};
+}
+
+export async function deleteWarehouse(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("warehouses")
+    .delete()
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/warehouses");
+  return {};
+}
+
+// ---- Purchase orders ----
+
+export interface PurchaseOrderLineInput {
+  partId?: string | null;
+  description: string;
+  quantityOrdered: number;
+  unitCost: number;
+}
+
+export interface PurchaseOrderInput {
+  supplierId?: string | null;
+  warehouseId?: string | null;
+  orderDate?: string;
+  expectedDate?: string;
+  notes?: string;
+  lines: PurchaseOrderLineInput[];
+}
+
+export async function createPurchaseOrder(
+  input: PurchaseOrderInput
+): Promise<MutationResult & { id?: string }> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  if (input.lines.length === 0) {
+    return { error: "Add at least one line before creating a purchase order." };
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: po, error } = await supabase
+    .from("purchase_orders")
+    .insert({
+      garage_id: garageId,
+      supplier_id: input.supplierId || null,
+      warehouse_id: input.warehouseId || null,
+      order_date: input.orderDate || null,
+      expected_date: input.expectedDate || null,
+      notes: input.notes || null,
+      status: "draft",
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  const { error: linesError } = await supabase.from("purchase_order_lines").insert(
+    input.lines.map((line) => ({
+      garage_id: garageId,
+      purchase_order_id: po.id,
+      part_id: line.partId || null,
+      description: line.description,
+      quantity_ordered: line.quantityOrdered,
+      unit_cost: line.unitCost,
+    }))
+  );
+
+  if (linesError) return { error: linesError.message };
+
+  revalidatePath("/purchase-orders");
+  return { id: po.id };
+}
+
+export async function updatePurchaseOrderStatus(
+  id: string,
+  status: PurchaseOrderStatus
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("purchase_orders")
+    .update({ status })
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/purchase-orders");
+  revalidatePath(`/purchase-orders/${id}`);
+  return {};
+}
+
+export async function receivePurchaseOrderLine(
+  lineId: string,
+  quantity: number,
+  unitCost?: number
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("receive_purchase_order_line", {
+    p_line_id: lineId,
+    p_quantity: quantity,
+    p_unit_cost: unitCost,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/purchase-orders");
+  revalidatePath("/inventory");
   return {};
 }
 
@@ -1320,11 +1685,17 @@ export interface ReminderInput {
   title: string;
   dueDate: string;
   notes?: string;
+  reminderType?: "mot" | "service" | "booking" | "general";
+  channel?: "in_app" | "email" | "sms";
 }
 
 export async function addReminder(input: ReminderInput): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { error } = await supabase.from("reminders").insert({
     garage_id: garageId,
@@ -1333,6 +1704,11 @@ export async function addReminder(input: ReminderInput): Promise<MutationResult>
     title: input.title,
     due_date: input.dueDate,
     notes: input.notes || null,
+    reminder_type: input.reminderType ?? "general",
+    channel: input.channel ?? "in_app",
+    status: "scheduled",
+    scheduled_at: new Date(input.dueDate).toISOString(),
+    created_by: user?.id ?? null,
   });
 
   if (error) return { error: error.message };
@@ -1351,7 +1727,7 @@ export async function toggleReminderDone(
 
   const { error } = await supabase
     .from("reminders")
-    .update({ done })
+    .update({ done, status: done ? "completed" : "scheduled" })
     .eq("id", id)
     .eq("garage_id", garageId);
 
@@ -1359,6 +1735,39 @@ export async function toggleReminderDone(
 
   revalidatePath("/reminders");
   revalidatePath("/");
+  return {};
+}
+
+export async function cancelReminder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("reminders")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/reminders");
+  return {};
+}
+
+export async function retryReminder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("reminders")
+    .update({ status: "scheduled", error_message: null })
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .eq("status", "failed");
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/reminders");
   return {};
 }
 
@@ -1379,6 +1788,73 @@ export async function deleteReminder(id: string): Promise<MutationResult> {
   return {};
 }
 
+export interface ReminderSettingsInput {
+  reminderType: "mot" | "service" | "booking" | "general";
+  enabled: boolean;
+  daysBefore?: number;
+  hoursBefore?: number;
+  emailEnabled: boolean;
+}
+
+export async function updateReminderSettings(
+  input: ReminderSettingsInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("reminder_settings").upsert(
+    {
+      garage_id: garageId,
+      reminder_type: input.reminderType,
+      enabled: input.enabled,
+      days_before: input.daysBefore ?? null,
+      hours_before: input.hoursBefore ?? null,
+      email_enabled: input.emailEnabled,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "garage_id,reminder_type" }
+  );
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  revalidatePath("/reminders");
+  return {};
+}
+
+/**
+ * Idempotent: only transitions in_app reminders from 'scheduled' to 'sent'
+ * once their scheduled_at has passed — the WHERE status='scheduled' guard
+ * means running this twice never double-processes a reminder. email/sms
+ * reminders are left untouched: no provider is configured, so there is no
+ * real send to perform yet, and this deliberately does not fabricate one.
+ */
+export async function processDueReminders(): Promise<MutationResult & { processed?: number }> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data, error } = await supabase
+    .from("reminders")
+    .update({ status: "sent", sent_at: new Date().toISOString() })
+    .eq("garage_id", garageId)
+    .eq("channel", "in_app")
+    .eq("status", "scheduled")
+    .lte("scheduled_at", new Date().toISOString())
+    .select("id");
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/reminders");
+  return { processed: data?.length ?? 0 };
+}
+
 export interface GarageSettingsInput {
   garageName: string;
   addressLine: string;
@@ -1387,6 +1863,12 @@ export interface GarageSettingsInput {
   vatNumber: string;
   defaultVatRate: number;
   invoicePrefix: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  timezone?: string;
+  currency?: string;
+  vatMode?: "not_registered" | "inclusive" | "exclusive";
+  defaultLabourRate?: number;
 }
 
 export async function updateGarageSettings(
@@ -1415,6 +1897,12 @@ export async function updateGarageSettings(
     vat_number: input.vatNumber,
     default_vat_rate: input.defaultVatRate,
     invoice_prefix: input.invoicePrefix,
+    contact_email: input.contactEmail || null,
+    contact_phone: input.contactPhone || null,
+    timezone: input.timezone || "Europe/London",
+    currency: input.currency || "GBP",
+    vat_mode: input.vatMode || "not_registered",
+    default_labour_rate: input.defaultLabourRate ?? 0,
   };
 
   const { error } = await supabase
@@ -1574,4 +2062,208 @@ export async function convertEstimateToBooking(
   revalidatePath("/diary");
   revalidatePath("/jobs");
   return { jobId: data ?? undefined };
+}
+
+// ---- Garage opening hours, closures, calendar behaviour, service catalogue ----
+
+export interface OpeningHoursDayInput {
+  weekday: number;
+  isClosed: boolean;
+  is24Hours: boolean;
+  opensAt: string | null;
+  closesAt: string | null;
+}
+
+export async function updateOpeningHours(
+  days: OpeningHoursDayInput[]
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("garage_opening_hours").upsert(
+    days.map((d) => ({
+      garage_id: garageId,
+      weekday: d.weekday,
+      is_closed: d.isClosed,
+      is_24_hours: d.is24Hours,
+      opens_at: d.is24Hours || d.isClosed ? null : d.opensAt,
+      closes_at: d.is24Hours || d.isClosed ? null : d.closesAt,
+      updated_at: new Date().toISOString(),
+    })),
+    { onConflict: "garage_id,weekday" }
+  );
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  return {};
+}
+
+export interface CalendarSettingsInput {
+  calendarStartHour: number;
+  calendarEndHour: number;
+  calendarSlotMinutes: number;
+  allowOverlappingJobs: boolean;
+  smartGapMinutes: number;
+}
+
+export async function updateCalendarSettings(
+  input: CalendarSettingsInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("garage_settings")
+    .update({
+      calendar_start_hour: input.calendarStartHour,
+      calendar_end_hour: input.calendarEndHour,
+      calendar_slot_minutes: input.calendarSlotMinutes,
+      allow_overlapping_jobs: input.allowOverlappingJobs,
+      smart_gap_minutes: input.smartGapMinutes,
+    })
+    .eq("id", garageId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  revalidatePath("/diary");
+  return {};
+}
+
+export interface ClosureInput {
+  startsAt: string;
+  endsAt: string;
+  title?: string;
+  closureType?: string;
+}
+
+export async function addClosure(input: ClosureInput): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("garage_closures").insert({
+    garage_id: garageId,
+    starts_at: input.startsAt,
+    ends_at: input.endsAt,
+    title: input.title || null,
+    closure_type: input.closureType || "custom",
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  return {};
+}
+
+export async function deleteClosure(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("garage_closures")
+    .delete()
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  return {};
+}
+
+export interface ServiceInput {
+  name: string;
+  description?: string;
+  category?: string;
+  defaultDurationMinutes: number;
+  defaultLabourPrice?: number;
+  vatRate?: number;
+  active: boolean;
+}
+
+export async function upsertService(
+  input: ServiceInput,
+  id?: string
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const payload = {
+    garage_id: garageId,
+    name: input.name,
+    description: input.description || null,
+    category: input.category || null,
+    default_duration_minutes: input.defaultDurationMinutes,
+    default_labour_price: input.defaultLabourPrice ?? null,
+    vat_rate: input.vatRate ?? null,
+    active: input.active,
+  };
+
+  const { error } = id
+    ? await supabase.from("service_catalogue").update(payload).eq("id", id).eq("garage_id", garageId)
+    : await supabase.from("service_catalogue").insert(payload);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  return {};
+}
+
+export async function deleteService(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("service_catalogue")
+    .delete()
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  return {};
 }

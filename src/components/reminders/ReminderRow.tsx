@@ -2,11 +2,24 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, Trash2 } from "lucide-react";
-import { deleteReminder, toggleReminderDone } from "@/lib/supabase/mutations";
+import { Check, Loader2, RotateCcw, Trash2, X } from "lucide-react";
+import { cancelReminder, deleteReminder, retryReminder, toggleReminderDone } from "@/lib/supabase/mutations";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import type { Reminder } from "@/lib/types";
+
+const TYPE_LABELS: Record<Reminder["reminderType"], string> = {
+  mot: "MOT",
+  service: "Service",
+  booking: "Booking",
+  general: "General",
+};
+
+const CHANNEL_LABELS: Record<Reminder["channel"], string> = {
+  in_app: "In-app",
+  email: "Email",
+  sms: "SMS",
+};
 
 export function ReminderRow({
   reminder,
@@ -30,6 +43,22 @@ export function ReminderRow({
     if (busy) return;
     setBusy(true);
     await deleteReminder(reminder.id);
+    setBusy(false);
+    router.refresh();
+  }
+
+  async function handleCancel() {
+    if (busy) return;
+    setBusy(true);
+    await cancelReminder(reminder.id);
+    setBusy(false);
+    router.refresh();
+  }
+
+  async function handleRetry() {
+    if (busy) return;
+    setBusy(true);
+    await retryReminder(reminder.id);
     setBusy(false);
     router.refresh();
   }
@@ -62,18 +91,47 @@ export function ReminderRow({
             <span className={overdue ? "font-medium text-rose-600" : ""}>
               Due {formatDate(reminder.dueDate)}
             </span>
+            {" · "}
+            {TYPE_LABELS[reminder.reminderType]} · {CHANNEL_LABELS[reminder.channel]}
           </p>
+          {reminder.status === "failed" && reminder.errorMessage ? (
+            <p className="mt-0.5 text-xs text-rose-600">{reminder.errorMessage}</p>
+          ) : null}
         </div>
       </div>
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={busy}
-        aria-label={`Delete ${reminder.title}`}
-        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
-      >
-        <Trash2 size={14} />
-      </button>
+      <div className="flex items-center gap-1">
+        {reminder.status === "failed" ? (
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={busy}
+            aria-label={`Retry ${reminder.title}`}
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-accent-50 hover:text-accent-600"
+          >
+            <RotateCcw size={14} />
+          </button>
+        ) : null}
+        {reminder.status !== "cancelled" && reminder.status !== "completed" ? (
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={busy}
+            aria-label={`Cancel ${reminder.title}`}
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-amber-50 hover:text-amber-600"
+          >
+            <X size={14} />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={busy}
+          aria-label={`Delete ${reminder.title}`}
+          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
     </div>
   );
 }

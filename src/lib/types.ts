@@ -281,16 +281,101 @@ export interface Estimate {
   lines: EstimateLine[];
 }
 
+export type ProductType = "part" | "tyre" | "consumable" | "wheel";
+
 export interface Part {
   id: string;
   sku: string;
   name: string;
   supplier: string | null;
+  supplierId: string | null;
   category: string | null;
+  productType: ProductType;
   stockLevel: number;
   reorderLevel: number;
   costPrice: number;
   sellPrice: number;
+  defaultWarehouseId: string | null;
+  tyreWidth: number | null;
+  tyreProfile: number | null;
+  tyreRimSize: number | null;
+  tyreLoadIndex: string | null;
+  tyreSpeedRating: string | null;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  accountNumber: string | null;
+  contactName: string | null;
+  email: string | null;
+  phone: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  postcode: string | null;
+  notes: string | null;
+}
+
+export interface Warehouse {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  postcode: string | null;
+  notes: string | null;
+}
+
+export type StockMovementType =
+  | "receipt"
+  | "sale"
+  | "adjustment"
+  | "return"
+  | "transfer"
+  | "stocktake";
+
+export interface StockMovement {
+  id: string;
+  partId: string;
+  warehouseId: string | null;
+  movementType: StockMovementType;
+  quantity: number;
+  unitCost: number | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export type PurchaseOrderStatus =
+  | "draft"
+  | "ordered"
+  | "partially_received"
+  | "received"
+  | "cancelled";
+
+export interface PurchaseOrderLine {
+  id: string;
+  partId: string | null;
+  description: string;
+  quantityOrdered: number;
+  quantityReceived: number;
+  unitCost: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  poNumber: string | null;
+  supplierId: string | null;
+  warehouseId: string | null;
+  status: PurchaseOrderStatus;
+  orderDate: string | null;
+  expectedDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  lines: PurchaseOrderLine[];
 }
 
 export type EmployeeRole =
@@ -326,6 +411,10 @@ export interface EmployeeWorkingHours {
   endsAt: string | null;
 }
 
+export type ReminderType = "mot" | "service" | "booking" | "general";
+export type ReminderChannel = "in_app" | "email" | "sms";
+export type ReminderStatus = "scheduled" | "sent" | "completed" | "cancelled" | "failed";
+
 export interface Reminder {
   id: string;
   customerId: string | null;
@@ -335,6 +424,22 @@ export interface Reminder {
   done: boolean;
   notes: string | null;
   createdAt: string;
+  reminderType: ReminderType;
+  channel: ReminderChannel;
+  status: ReminderStatus;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  cancelledAt: string | null;
+  errorMessage: string | null;
+}
+
+export interface ReminderSettings {
+  id: string;
+  reminderType: ReminderType;
+  enabled: boolean;
+  daysBefore: number | null;
+  hoursBefore: number | null;
+  emailEnabled: boolean;
 }
 
 export type VatMode = "not_registered" | "inclusive" | "exclusive";

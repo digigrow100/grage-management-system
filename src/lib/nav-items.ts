@@ -12,6 +12,9 @@ import {
   IdCard,
   Settings,
   HelpCircle,
+  Truck,
+  PackageSearch,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +34,9 @@ export const navItems: NavItem[] = [
   { href: "/estimates", label: "Estimates", icon: ClipboardList },
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/inventory", label: "Inventory", icon: Boxes },
+  { href: "/purchase-orders", label: "Purchase Orders", icon: PackageSearch, section: "Stock" },
+  { href: "/suppliers", label: "Suppliers", icon: Truck, section: "Stock" },
+  { href: "/warehouses", label: "Warehouses", icon: Warehouse, section: "Stock" },
   { href: "/reminders", label: "Reminders", icon: Bell, section: "Customers" },
   { href: "/customer-intelligence", label: "Customer Intelligence", icon: UserSearch, section: "Customers" },
   { href: "/reports", label: "Business Analytics", icon: BarChart3, section: "Business" },

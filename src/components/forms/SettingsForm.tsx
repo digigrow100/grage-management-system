@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Hash, MapPin, Percent, Receipt } from "lucide-react";
-import { FieldGroup, TextInput } from "@/components/ui/Field";
+import { Building2, Clock, Globe, Hash, Mail, MapPin, Percent, Phone, PoundSterling, Receipt } from "lucide-react";
+import { FieldGroup, Select, TextInput } from "@/components/ui/Field";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { updateGarageSettings } from "@/lib/supabase/mutations";
 import type { GarageSettings } from "@/lib/types";
@@ -29,6 +29,12 @@ export function SettingsForm({ settings }: { settings: GarageSettings }) {
       vatNumber: String(formData.get("vatNumber") ?? ""),
       defaultVatRate: Number(formData.get("defaultVatRate") ?? 20),
       invoicePrefix: String(formData.get("invoicePrefix") ?? "INV"),
+      contactEmail: String(formData.get("contactEmail") ?? ""),
+      contactPhone: String(formData.get("contactPhone") ?? ""),
+      timezone: String(formData.get("timezone") ?? "Europe/London"),
+      currency: String(formData.get("currency") ?? "GBP"),
+      vatMode: formData.get("vatMode") as "not_registered" | "inclusive" | "exclusive",
+      defaultLabourRate: Number(formData.get("defaultLabourRate") ?? 0),
     });
 
     setSubmitting(false);
@@ -85,6 +91,69 @@ export function SettingsForm({ settings }: { settings: GarageSettings }) {
           <FieldGroup label="Invoice Number Prefix" htmlFor="invoicePrefix" hint="e.g. INV-1001">
             <TextInput id="invoicePrefix" name="invoicePrefix" icon={Receipt} defaultValue={settings.invoicePrefix} />
           </FieldGroup>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FieldGroup label="Contact Email" htmlFor="contactEmail" hint="Optional">
+              <TextInput
+                id="contactEmail"
+                name="contactEmail"
+                type="email"
+                icon={Mail}
+                defaultValue={settings.contactEmail ?? ""}
+              />
+            </FieldGroup>
+            <FieldGroup label="Contact Phone" htmlFor="contactPhone" hint="Optional">
+              <TextInput
+                id="contactPhone"
+                name="contactPhone"
+                type="tel"
+                icon={Phone}
+                defaultValue={settings.contactPhone ?? ""}
+              />
+            </FieldGroup>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FieldGroup label="Timezone" htmlFor="timezone" hint="IANA name">
+              <TextInput
+                id="timezone"
+                name="timezone"
+                icon={Clock}
+                defaultValue={settings.timezone ?? "Europe/London"}
+              />
+            </FieldGroup>
+            <FieldGroup label="Currency" htmlFor="currency" hint="3-letter code">
+              <TextInput
+                id="currency"
+                name="currency"
+                icon={Globe}
+                maxLength={3}
+                className="uppercase"
+                defaultValue={settings.currency ?? "GBP"}
+              />
+            </FieldGroup>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FieldGroup label="VAT Mode" htmlFor="vatMode">
+              <Select id="vatMode" name="vatMode" defaultValue={settings.vatMode ?? "not_registered"}>
+                <option value="not_registered">Not VAT registered</option>
+                <option value="inclusive">Prices include VAT</option>
+                <option value="exclusive">Prices exclude VAT</option>
+              </Select>
+            </FieldGroup>
+            <FieldGroup label="Default Labour Rate (£/hr)" htmlFor="defaultLabourRate">
+              <TextInput
+                id="defaultLabourRate"
+                name="defaultLabourRate"
+                type="number"
+                icon={PoundSterling}
+                min="0"
+                step="0.01"
+                defaultValue={settings.defaultLabourRate ?? 0}
+              />
+            </FieldGroup>
+          </div>
 
           {error ? (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
