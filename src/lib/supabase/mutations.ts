@@ -1864,6 +1864,76 @@ export async function deleteVhcTemplate(id: string): Promise<MutationResult> {
   return {};
 }
 
+// ---- Feedback ----
+
+export async function sendFeedbackRequest(
+  jobId: string,
+  customerId: string
+): Promise<MutationResult & { token?: string }> {
+  try {
+    await requirePermission("manageFeedback");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data, error } = await supabase
+    .rpc("create_feedback_request", {
+      p_job_id: jobId,
+      p_customer_id: customerId,
+      p_garage_id: garageId,
+    })
+    .single();
+
+  if (error) return { error: error.message };
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath("/feedback");
+  return { token: data.token };
+}
+
+export interface OpenFeedbackRequestResult {
+  requestStatus: string;
+  expired: boolean;
+  garageName: string | null;
+  customerName: string | null;
+  vehicleLabel: string | null;
+  alreadyResponded: boolean;
+}
+
+export async function openFeedbackRequestByToken(
+  token: string
+): Promise<OpenFeedbackRequestResult | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("open_feedback_request", { p_token: token }).single();
+  if (error) return null;
+  return {
+    requestStatus: data.request_status,
+    expired: data.expired,
+    garageName: data.garage_name,
+    customerName: data.customer_name,
+    vehicleLabel: data.vehicle_label,
+    alreadyResponded: data.already_responded,
+  };
+}
+
+export async function submitFeedbackResponseByToken(
+  token: string,
+  npsScore: number,
+  comment?: string
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("submit_feedback_response", {
+    p_token: token,
+    p_nps_score: npsScore,
+    p_comment: comment,
+  });
+  if (error) return { error: error.message };
+  return {};
+}
+
 export interface EmployeeInput {
   fullName: string;
   role: EmployeeRole;

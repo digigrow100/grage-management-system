@@ -12,6 +12,7 @@ import {
   getVehicle,
   getVhcChecksForJob,
   getVhcTemplates,
+  getFeedbackRequestsForJob,
 } from "@/lib/supabase/queries";
 import { getCurrentGarageId } from "@/lib/supabase/garage";
 import { deleteJobCard } from "@/lib/supabase/mutations";
@@ -26,6 +27,7 @@ import { JobDetailsForm } from "@/components/jobs/JobDetailsForm";
 import { JOB_STATUS_LABELS } from "@/lib/job-status";
 import { StartVhcCheckButton } from "@/components/vhc/StartVhcCheckButton";
 import { VhcCheckPanel } from "@/components/vhc/VhcCheckPanel";
+import { SendFeedbackRequestButton } from "@/components/feedback/SendFeedbackRequestButton";
 
 export default async function JobDetailPage({
   params,
@@ -36,7 +38,7 @@ export default async function JobDetailPage({
   const job = await getJob(id);
   if (!job) notFound();
 
-  const [customer, vehicle, employees, parts, statusHistory, vhcChecks, vhcTemplates, garageId] =
+  const [customer, vehicle, employees, parts, statusHistory, vhcChecks, vhcTemplates, garageId, feedbackRequests] =
     await Promise.all([
       getCustomer(job.customerId),
       job.vehicleId ? getVehicle(job.vehicleId) : Promise.resolve(undefined),
@@ -46,6 +48,7 @@ export default async function JobDetailPage({
       getVhcChecksForJob(job.id),
       getVhcTemplates(),
       getCurrentGarageId(),
+      getFeedbackRequestsForJob(job.id),
     ]);
   const activeEmployees = employees.filter((e) => e.active);
   const latestVhcCheck = vhcChecks[0];
@@ -231,6 +234,41 @@ export default async function JobDetailPage({
               <p className="text-sm text-slate-400">
                 No health check has been performed on this job yet.
               </p>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Customer feedback"
+            subtitle="Send a link for the customer to rate their experience"
+            action={<SendFeedbackRequestButton jobId={job.id} customerId={job.customerId} />}
+          />
+          <CardBody className="space-y-2">
+            {feedbackRequests.length === 0 ? (
+              <p className="text-sm text-slate-400">No feedback requests sent for this job yet.</p>
+            ) : (
+              feedbackRequests.map((fr) => (
+                <div
+                  key={fr.id}
+                  className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2.5 text-sm"
+                >
+                  <div>
+                    <p className="text-slate-900">
+                      Sent {formatDate(fr.sentAt)}
+                      {fr.respondedAt ? ` · Responded ${formatDate(fr.respondedAt)}` : ""}
+                    </p>
+                    {fr.comment ? <p className="text-xs text-slate-500">&ldquo;{fr.comment}&rdquo;</p> : null}
+                  </div>
+                  {fr.npsScore !== null ? (
+                    <span className="rounded-full bg-accent-50 px-2.5 py-1 text-xs font-semibold text-accent-700">
+                      {fr.npsScore}/10
+                    </span>
+                  ) : (
+                    <span className="text-xs capitalize text-slate-400">{fr.status}</span>
+                  )}
+                </div>
+              ))
             )}
           </CardBody>
         </Card>

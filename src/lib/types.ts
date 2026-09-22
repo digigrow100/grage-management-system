@@ -271,6 +271,33 @@ export interface VhcCheck {
   items: VhcItem[];
 }
 
+export type FeedbackRequestStatus = "sent" | "opened" | "responded" | "expired";
+
+export type FeedbackChannel = "link" | "email" | "sms";
+
+export interface FeedbackRequest {
+  id: string;
+  jobId: string;
+  customerId: string;
+  token: string;
+  status: FeedbackRequestStatus;
+  channel: FeedbackChannel;
+  sentAt: string;
+  openedAt: string | null;
+  respondedAt: string | null;
+  expiresAt: string;
+  npsScore: number | null;
+  comment: string | null;
+}
+
+export interface FeedbackStats {
+  totalResponses: number;
+  promoters: number;
+  passives: number;
+  detractors: number;
+  npsScore: number | null;
+}
+
 export interface InvoiceLineItem {
   id: string;
   description: string;
