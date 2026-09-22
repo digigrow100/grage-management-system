@@ -69,7 +69,10 @@ export default async function DiaryPage() {
           {days.map((day) => {
             const dayBookings = bookings
               .filter((b) => b.date === day.date)
-              .sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+              .sort((a, b) => {
+                if (a.startsAt && b.startsAt) return a.startsAt.localeCompare(b.startsAt);
+                return (a.time ?? "").localeCompare(b.time ?? "");
+              });
             return (
               <Card key={day.date} className="flex flex-col">
                 <div className="border-b border-slate-100 px-4 py-3">
@@ -131,6 +134,11 @@ export default async function DiaryPage() {
                             <p className="mt-1 line-clamp-2 text-xs text-slate-500">
                               {b.notes}
                             </p>
+                          ) : null}
+                          {b.locationType && b.locationType !== "garage" ? (
+                            <Badge tone="blue" className="mt-1.5">
+                              Off-site{b.addressLine ? ` · ${b.addressLine}` : ""}
+                            </Badge>
                           ) : null}
                           <div className="mt-1.5 flex items-center justify-between">
                             <span className="text-xs text-slate-400">

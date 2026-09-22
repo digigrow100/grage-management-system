@@ -520,21 +520,58 @@ export async function updateVehicle(
   return {};
 }
 
-export async function addBooking(input: {
+export interface AddBookingInput {
   customerId: string;
   jobType: JobType;
   date: string;
+  time?: string;
+  durationMinutes?: number;
   estPrice?: number;
   priority?: JobPriority;
   technician?: string;
+  employeeId?: string;
   bay?: string;
   notes?: string;
   serviceDetails?: ServiceDetails | null;
-}): Promise<MutationResult> {
+  locationType?: "garage" | "customer_address" | "other";
+  addressLine?: string;
+  postCode?: string;
+  googlePlaceId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export async function addBooking(input: AddBookingInput): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
   const technician = input.technician?.trim() || null;
   const bay = input.bay?.trim() || null;
+  const employeeId = input.employeeId?.trim() || null;
+
+  const { data: bookingWindow, error: windowError } = await supabase.rpc(
+    "compute_booking_window",
+    {
+      p_garage_id: garageId,
+      p_date: input.date,
+      p_time: input.time || "09:00:00",
+      p_duration_minutes: input.durationMinutes ?? 60,
+    }
+  );
+
+  if (windowError) return { error: windowError.message };
+
+  const startsAt = bookingWindow.starts_at;
+  const endsAt = bookingWindow.ends_at;
+
+  const { data: conflict, error: conflictError } = await supabase.rpc("check_booking_conflict", {
+    p_garage_id: garageId,
+    p_employee_id: employeeId,
+    p_starts_at: startsAt,
+    p_ends_at: endsAt,
+  });
+
+  if (conflictError) return { error: conflictError.message };
+  if (conflict) return { error: conflict };
 
   const { data: booking, error } = await supabase
     .from("bookings")
@@ -543,11 +580,22 @@ export async function addBooking(input: {
       customer_id: input.customerId,
       job_type: input.jobType,
       date: input.date,
+      time: input.time || null,
+      duration_minutes: input.durationMinutes ?? null,
+      starts_at: startsAt,
+      ends_at: endsAt,
       est_price: input.estPrice ?? null,
       technician,
+      employee_id: employeeId,
       bay,
       notes: input.notes || null,
       service_details: (input.serviceDetails as unknown as Json) ?? null,
+      location_type: input.locationType ?? "garage",
+      address_line: input.locationType && input.locationType !== "garage" ? input.addressLine || null : null,
+      post_code: input.locationType && input.locationType !== "garage" ? input.postCode || null : null,
+      google_place_id: input.googlePlaceId ?? null,
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
     })
     .select("id")
     .single();

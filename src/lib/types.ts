@@ -139,6 +139,9 @@ export type ServiceDetails =
   | ({ jobType: "battery_replacement" } & BatteryReplacementDetails)
   | ({ jobType: "vehicle_recovery" } & VehicleRecoveryDetails);
 
+export type BookingStatus = "confirmed" | "checked_in" | "completed" | "cancelled" | "no_show";
+export type BookingLocationType = "garage" | "customer_address" | "other";
+
 export interface Booking {
   id: string;
   customerId: string;
@@ -152,6 +155,18 @@ export interface Booking {
   estPrice: number | null;
   notes?: string | null;
   serviceDetails?: ServiceDetails | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  status?: BookingStatus;
+  employeeId?: string | null;
+  serviceId?: string | null;
+  locationType?: BookingLocationType;
+  addressLine?: string | null;
+  postCode?: string | null;
+  googlePlaceId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  source?: string;
 }
 
 export interface JobLabourLine {

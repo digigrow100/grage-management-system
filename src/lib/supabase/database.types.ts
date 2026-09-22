@@ -16,51 +16,99 @@ export type Database = {
     Tables: {
       bookings: {
         Row: {
+          address_line: string | null
           bay: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
           created_at: string
           customer_id: string
           date: string
           duration_minutes: number | null
+          employee_id: string | null
+          ends_at: string | null
           est_price: number | null
+          estimate_id: string | null
           garage_id: string
+          google_place_id: string | null
           id: string
           job_type: Database["public"]["Enums"]["job_type"]
+          latitude: number | null
+          location_type: string
+          longitude: number | null
           notes: string | null
+          post_code: string | null
           service_details: Json | null
+          service_id: string | null
+          source: string
+          starts_at: string | null
+          status: string
           technician: string | null
           time: string | null
+          updated_at: string
           vehicle_id: string | null
         }
         Insert: {
+          address_line?: string | null
           bay?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           created_at?: string
           customer_id: string
           date: string
           duration_minutes?: number | null
+          employee_id?: string | null
+          ends_at?: string | null
           est_price?: number | null
+          estimate_id?: string | null
           garage_id: string
+          google_place_id?: string | null
           id?: string
           job_type: Database["public"]["Enums"]["job_type"]
+          latitude?: number | null
+          location_type?: string
+          longitude?: number | null
           notes?: string | null
+          post_code?: string | null
           service_details?: Json | null
+          service_id?: string | null
+          source?: string
+          starts_at?: string | null
+          status?: string
           technician?: string | null
           time?: string | null
+          updated_at?: string
           vehicle_id?: string | null
         }
         Update: {
+          address_line?: string | null
           bay?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           created_at?: string
           customer_id?: string
           date?: string
           duration_minutes?: number | null
+          employee_id?: string | null
+          ends_at?: string | null
           est_price?: number | null
+          estimate_id?: string | null
           garage_id?: string
+          google_place_id?: string | null
           id?: string
           job_type?: Database["public"]["Enums"]["job_type"]
+          latitude?: number | null
+          location_type?: string
+          longitude?: number | null
           notes?: string | null
+          post_code?: string | null
           service_details?: Json | null
+          service_id?: string | null
+          source?: string
+          starts_at?: string | null
+          status?: string
           technician?: string | null
           time?: string | null
+          updated_at?: string
           vehicle_id?: string | null
         }
         Relationships: [
@@ -72,10 +120,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookings_garage_id_fkey"
             columns: ["garage_id"]
             isOneToOne: false
             referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "service_catalogue"
             referencedColumns: ["id"]
           },
           {
@@ -1113,6 +1175,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_booking_conflict: {
+        Args: {
+          p_employee_id: string | null
+          p_ends_at: string
+          p_exclude_booking_id?: string
+          p_garage_id: string
+          p_starts_at: string
+        }
+        Returns: string | null
+      }
+      compute_booking_window: {
+        Args: {
+          p_date: string
+          p_duration_minutes: number
+          p_garage_id: string
+          p_time: string
+        }
+        Returns: { starts_at: string; ends_at: string }
+      }
       create_garage_with_owner: {
         Args: { p_garage_name: string }
         Returns: string
