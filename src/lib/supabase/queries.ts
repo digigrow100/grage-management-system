@@ -12,6 +12,7 @@ import type {
   JobCard,
   JobLabourLine,
   JobPartLine,
+  JobStatusHistoryEntry,
   Part,
   Reminder,
   ServiceDetails,
@@ -209,6 +210,16 @@ function mapJobCard(row: JobCardRow, invoiceId?: string | null): JobCard {
     labourLines: (row.job_labour_lines ?? []).map(mapLabourLine),
     partLines: (row.job_part_lines ?? []).map(mapPartLine),
     invoiceId: invoiceId ?? undefined,
+    jobNumber: row.job_number,
+    employeeId: row.employee_id,
+    checkedInAt: row.checked_in_at,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    releasedAt: row.released_at,
+    authorizationStatus: (row.authorization_status as JobCard["authorizationStatus"]) ?? "not_required",
+    mileageIn: row.mileage_in,
+    customerComplaint: row.customer_complaint,
+    internalNotes: row.internal_notes,
   };
 }
 
@@ -447,6 +458,30 @@ export async function getJob(id: string): Promise<JobCard | undefined> {
   if (error) throw new Error(error.message);
   if (!data) return undefined;
   return mapJobCard(data as JobCardRow, invoiceLink?.id);
+}
+
+export async function getJobStatusHistory(jobId: string): Promise<JobStatusHistoryEntry[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data, error } = await supabase
+    .from("job_status_history")
+    .select("*")
+    .eq("job_id", jobId)
+    .eq("garage_id", garageId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    jobId: row.job_id,
+    previousStatus: row.previous_status as JobStatusHistoryEntry["previousStatus"],
+    newStatus: row.new_status as JobStatusHistoryEntry["newStatus"],
+    reason: row.reason,
+    changedBy: row.changed_by,
+    createdAt: row.created_at,
+  }));
 }
 
 // ---- Invoices ----

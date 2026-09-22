@@ -674,45 +674,78 @@ export type Database = {
       }
       job_cards: {
         Row: {
+          authorization_status: string
           booking_id: string | null
+          checked_in_at: string | null
+          completed_at: string | null
           created_at: string
+          customer_complaint: string | null
           customer_id: string
           description: string | null
           due_date: string | null
+          employee_id: string | null
+          estimate_id: string | null
           garage_id: string
           id: string
+          internal_notes: string | null
+          job_number: string | null
+          mileage_in: number | null
           notes: string | null
           priority: string
+          released_at: string | null
+          started_at: string | null
           status: Database["public"]["Enums"]["job_status"]
           technician: string | null
           updated_at: string
           vehicle_id: string | null
         }
         Insert: {
+          authorization_status?: string
           booking_id?: string | null
+          checked_in_at?: string | null
+          completed_at?: string | null
           created_at?: string
+          customer_complaint?: string | null
           customer_id: string
           description?: string | null
           due_date?: string | null
+          employee_id?: string | null
+          estimate_id?: string | null
           garage_id: string
           id?: string
+          internal_notes?: string | null
+          job_number?: string | null
+          mileage_in?: number | null
           notes?: string | null
           priority?: string
+          released_at?: string | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           technician?: string | null
           updated_at?: string
           vehicle_id?: string | null
         }
         Update: {
+          authorization_status?: string
           booking_id?: string | null
+          checked_in_at?: string | null
+          completed_at?: string | null
           created_at?: string
+          customer_complaint?: string | null
           customer_id?: string
           description?: string | null
           due_date?: string | null
+          employee_id?: string | null
+          estimate_id?: string | null
           garage_id?: string
           id?: string
+          internal_notes?: string | null
+          job_number?: string | null
+          mileage_in?: number | null
           notes?: string | null
           priority?: string
+          released_at?: string | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["job_status"]
           technician?: string | null
           updated_at?: string
@@ -731,6 +764,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_cards_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
           {
@@ -839,6 +879,54 @@ export type Database = {
             columns: ["part_id"]
             isOneToOne: false
             referencedRelation: "parts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          garage_id: string
+          id: string
+          job_id: string
+          new_status: string
+          previous_status: string | null
+          reason: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          garage_id: string
+          id?: string
+          job_id: string
+          new_status: string
+          previous_status?: string | null
+          reason?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          garage_id?: string
+          id?: string
+          job_id?: string
+          new_status?: string
+          previous_status?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_status_history_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_status_history_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "job_cards"
             referencedColumns: ["id"]
           },
         ]
@@ -1211,6 +1299,9 @@ export type Database = {
         | "invoiced"
         | "checked_in"
         | "vehicle_released"
+        | "awaiting_authorisation"
+        | "authorised"
+        | "cancelled"
       job_type:
         | "vehicle_recovery"
         | "diagnostic"
@@ -1358,6 +1449,9 @@ export const Constants = {
         "invoiced",
         "checked_in",
         "vehicle_released",
+        "awaiting_authorisation",
+        "authorised",
+        "cancelled",
       ],
       job_type: [
         "vehicle_recovery",
