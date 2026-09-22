@@ -15,6 +15,7 @@ import {
   Truck,
   PackageSearch,
   Warehouse,
+  MessageSquareHeart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +40,7 @@ export const navItems: NavItem[] = [
   { href: "/warehouses", label: "Warehouses", icon: Warehouse, section: "Stock" },
   { href: "/reminders", label: "Reminders", icon: Bell, section: "Customers" },
   { href: "/customer-intelligence", label: "Customer Intelligence", icon: UserSearch, section: "Customers" },
+  { href: "/feedback", label: "Feedback", icon: MessageSquareHeart, section: "Customers" },
   { href: "/reports", label: "Business Analytics", icon: BarChart3, section: "Business" },
   { href: "/accounting", label: "Accounting", icon: Calculator, section: "Business" },
   { href: "/employees", label: "Employees", icon: IdCard, section: "Business" },

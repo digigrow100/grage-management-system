@@ -510,6 +510,118 @@ export type Database = {
           },
         ]
       }
+      feedback_requests: {
+        Row: {
+          channel: string
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          expires_at: string
+          garage_id: string
+          id: string
+          job_id: string
+          opened_at: string | null
+          responded_at: string | null
+          sent_at: string
+          status: string
+          token: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          expires_at?: string
+          garage_id: string
+          id?: string
+          job_id: string
+          opened_at?: string | null
+          responded_at?: string | null
+          sent_at?: string
+          status?: string
+          token: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          expires_at?: string
+          garage_id?: string
+          id?: string
+          job_id?: string
+          opened_at?: string | null
+          responded_at?: string | null
+          sent_at?: string
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_requests_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_requests_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_requests_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "job_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_responses: {
+        Row: {
+          comment: string | null
+          garage_id: string
+          id: string
+          nps_score: number
+          request_id: string
+          submitted_at: string
+        }
+        Insert: {
+          comment?: string | null
+          garage_id: string
+          id?: string
+          nps_score: number
+          request_id: string
+          submitted_at?: string
+        }
+        Update: {
+          comment?: string | null
+          garage_id?: string
+          id?: string
+          nps_score?: number
+          request_id?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_responses_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_responses_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: true
+            referencedRelation: "feedback_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       garage_closures: {
         Row: {
           closure_type: string
@@ -2047,6 +2159,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_feedback_request: {
+        Args: { p_customer_id: string; p_garage_id: string; p_job_id: string }
+        Returns: {
+          id: string
+          token: string
+        }[]
+      }
+      open_feedback_request: {
+        Args: { p_token: string }
+        Returns: {
+          already_responded: boolean
+          customer_name: string
+          expired: boolean
+          garage_name: string
+          request_status: string
+          vehicle_label: string
+        }[]
+      }
+      submit_feedback_response: {
+        Args: { p_comment?: string; p_nps_score: number; p_token: string }
+        Returns: undefined
+      }
       check_booking_conflict: {
         Args: {
           p_employee_id: string | null

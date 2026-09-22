@@ -31,6 +31,10 @@ import type {
   ServiceDetails,
   StockMovement,
   StockMovementType,
+  FeedbackChannel,
+  FeedbackRequest,
+  FeedbackRequestStatus,
+  FeedbackStats,
   Supplier,
   Vehicle,
   VhcCheck,
@@ -746,6 +750,78 @@ export async function getVhcCheck(id: string): Promise<VhcCheck | null> {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapVhcCheck(data as VhcCheckRow) : null;
+}
+
+// ---- Feedback ----
+
+function mapFeedbackRequest(
+  row: Tables<"feedback_requests">,
+  response?: Tables<"feedback_responses">
+): FeedbackRequest {
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    customerId: row.customer_id,
+    token: row.token,
+    status: row.status as FeedbackRequestStatus,
+    channel: row.channel as FeedbackChannel,
+    sentAt: row.sent_at,
+    openedAt: row.opened_at,
+    respondedAt: row.responded_at,
+    expiresAt: row.expires_at,
+    npsScore: response?.nps_score ?? null,
+    comment: response?.comment ?? null,
+  };
+}
+
+export async function getFeedbackRequestsForJob(jobId: string): Promise<FeedbackRequest[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("feedback_requests")
+    .select("*, feedback_responses(*)")
+    .eq("job_id", jobId)
+    .eq("garage_id", garageId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => {
+    const responses = row.feedback_responses as unknown as Tables<"feedback_responses">[] | null;
+    return mapFeedbackRequest(row, responses?.[0]);
+  });
+}
+
+export async function getFeedbackRequests(): Promise<FeedbackRequest[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("feedback_requests")
+    .select("*, feedback_responses(*)")
+    .eq("garage_id", garageId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => {
+    const responses = row.feedback_responses as unknown as Tables<"feedback_responses">[] | null;
+    return mapFeedbackRequest(row, responses?.[0]);
+  });
+}
+
+export async function getFeedbackStats(): Promise<FeedbackStats> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("feedback_responses")
+    .select("nps_score")
+    .eq("garage_id", garageId);
+  if (error) throw new Error(error.message);
+
+  const scores = (data ?? []).map((r) => r.nps_score);
+  const promoters = scores.filter((s) => s >= 9).length;
+  const detractors = scores.filter((s) => s <= 6).length;
+  const passives = scores.length - promoters - detractors;
+  const npsScore =
+    scores.length > 0 ? Math.round(((promoters - detractors) / scores.length) * 100) : null;
+
+  return { totalResponses: scores.length, promoters, passives, detractors, npsScore };
 }
 
 // ---- Bookings ----

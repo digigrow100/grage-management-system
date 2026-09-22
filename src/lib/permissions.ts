@@ -25,6 +25,7 @@ export const PERMISSIONS = {
   manageJobs: ["owner", "manager", "service_advisor", "technician"],
   manageVhc: ["owner", "manager", "service_advisor", "technician"],
   manageReminders: ["owner", "manager", "service_advisor"],
+  manageFeedback: ["owner", "manager", "service_advisor"],
   readStock: ["owner", "manager", "service_advisor", "technician"],
   manageStock: ["owner", "manager", "service_advisor"],
 } as const satisfies Record<string, readonly GarageRole[]>;
