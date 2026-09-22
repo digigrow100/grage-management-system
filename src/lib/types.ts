@@ -227,6 +227,50 @@ export interface JobStatusHistoryEntry {
   createdAt: string;
 }
 
+export type VhcCheckStatus = "in_progress" | "completed" | "sent";
+
+export type VhcItemResult = "green" | "amber" | "red" | "not_checked" | "not_applicable";
+
+export interface VhcTemplate {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  items: VhcTemplateItem[];
+}
+
+export interface VhcTemplateItem {
+  id: string;
+  templateId: string;
+  category: string;
+  label: string;
+  sortOrder: number;
+}
+
+export interface VhcItem {
+  id: string;
+  vhcCheckId: string;
+  category: string;
+  label: string;
+  result: VhcItemResult;
+  notes: string | null;
+  photoPaths: string[];
+  estimateLineId: string | null;
+  sortOrder: number;
+}
+
+export interface VhcCheck {
+  id: string;
+  jobId: string;
+  templateId: string | null;
+  status: VhcCheckStatus;
+  technicianId: string | null;
+  notes: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  sentAt: string | null;
+  items: VhcItem[];
+}
+
 export interface InvoiceLineItem {
   id: string;
   description: string;

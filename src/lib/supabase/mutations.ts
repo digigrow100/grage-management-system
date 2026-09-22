@@ -1587,6 +1587,283 @@ export async function receivePurchaseOrderLine(
   return {};
 }
 
+// ---- VHC (Vehicle Health Check) ----
+
+export interface StartVhcCheckInput {
+  jobId: string;
+  templateId?: string | null;
+  technicianId?: string | null;
+}
+
+export async function startVhcCheck(
+  input: StartVhcCheckInput
+): Promise<MutationResult & { id?: string }> {
+  try {
+    await requirePermission("manageVhc");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: check, error } = await supabase
+    .from("vhc_checks")
+    .insert({
+      garage_id: garageId,
+      job_id: input.jobId,
+      template_id: input.templateId || null,
+      technician_id: input.technicianId || null,
+      status: "in_progress",
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  if (input.templateId) {
+    const { data: templateItems, error: templateItemsError } = await supabase
+      .from("vhc_template_items")
+      .select("*")
+      .eq("template_id", input.templateId)
+      .order("sort_order", { ascending: true });
+
+    if (templateItemsError) return { error: templateItemsError.message };
+
+    if (templateItems && templateItems.length > 0) {
+      const { error: itemsError } = await supabase.from("vhc_items").insert(
+        templateItems.map((item) => ({
+          garage_id: garageId,
+          vhc_check_id: check.id,
+          category: item.category,
+          label: item.label,
+          sort_order: item.sort_order,
+        }))
+      );
+      if (itemsError) return { error: itemsError.message };
+    }
+  }
+
+  revalidatePath(`/jobs/${input.jobId}`);
+  return { id: check.id };
+}
+
+export interface VhcItemDraftInput {
+  category?: string;
+  label: string;
+}
+
+export async function addVhcItem(
+  vhcCheckId: string,
+  jobId: string,
+  input: VhcItemDraftInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageVhc");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("vhc_items").insert({
+    garage_id: garageId,
+    vhc_check_id: vhcCheckId,
+    category: input.category || "General",
+    label: input.label,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+
+export interface UpdateVhcItemInput {
+  result?: string;
+  notes?: string;
+}
+
+export async function updateVhcItem(
+  itemId: string,
+  jobId: string,
+  input: UpdateVhcItemInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageVhc");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("vhc_items")
+    .update({
+      ...(input.result !== undefined ? { result: input.result } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes || null } : {}),
+    })
+    .eq("id", itemId)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+
+export async function addVhcItemPhoto(
+  itemId: string,
+  jobId: string,
+  path: string
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageVhc");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: item, error: fetchError } = await supabase
+    .from("vhc_items")
+    .select("photo_paths")
+    .eq("id", itemId)
+    .eq("garage_id", garageId)
+    .single();
+
+  if (fetchError) return { error: fetchError.message };
+
+  const { error } = await supabase
+    .from("vhc_items")
+    .update({ photo_paths: [...(item.photo_paths ?? []), path] })
+    .eq("id", itemId)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+
+export async function completeVhcCheck(
+  vhcCheckId: string,
+  jobId: string
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageVhc");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("vhc_checks")
+    .update({ status: "completed", completed_at: new Date().toISOString() })
+    .eq("id", vhcCheckId)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+
+export interface VhcTemplateItemDraftInput {
+  category: string;
+  label: string;
+  sortOrder: number;
+}
+
+export interface VhcTemplateInput {
+  name: string;
+  isDefault?: boolean;
+  items: VhcTemplateItemDraftInput[];
+}
+
+export async function saveVhcTemplate(
+  input: VhcTemplateInput,
+  templateId?: string
+): Promise<MutationResult & { id?: string }> {
+  try {
+    await requirePermission("manageVhc");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  let id = templateId;
+  if (id) {
+    const { error } = await supabase
+      .from("vhc_templates")
+      .update({ name: input.name, is_default: input.isDefault ?? false })
+      .eq("id", id)
+      .eq("garage_id", garageId);
+    if (error) return { error: error.message };
+
+    const { error: deleteError } = await supabase
+      .from("vhc_template_items")
+      .delete()
+      .eq("template_id", id);
+    if (deleteError) return { error: deleteError.message };
+  } else {
+    const { data: template, error } = await supabase
+      .from("vhc_templates")
+      .insert({ garage_id: garageId, name: input.name, is_default: input.isDefault ?? false })
+      .select("id")
+      .single();
+    if (error) return { error: error.message };
+    id = template.id;
+  }
+
+  if (input.items.length > 0) {
+    const { error: itemsError } = await supabase.from("vhc_template_items").insert(
+      input.items.map((item) => ({
+        garage_id: garageId,
+        template_id: id,
+        category: item.category,
+        label: item.label,
+        sort_order: item.sortOrder,
+      }))
+    );
+    if (itemsError) return { error: itemsError.message };
+  }
+
+  revalidatePath("/settings");
+  return { id };
+}
+
+export async function deleteVhcTemplate(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageVhc");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("vhc_templates")
+    .delete()
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/settings");
+  return {};
+}
+
 export interface EmployeeInput {
   fullName: string;
   role: EmployeeRole;

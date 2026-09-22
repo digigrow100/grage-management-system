@@ -23,6 +23,7 @@ export const PERMISSIONS = {
   manageVehicles: ["owner", "manager", "service_advisor"],
   manageBookings: ["owner", "manager", "service_advisor"],
   manageJobs: ["owner", "manager", "service_advisor", "technician"],
+  manageVhc: ["owner", "manager", "service_advisor", "technician"],
   manageReminders: ["owner", "manager", "service_advisor"],
   readStock: ["owner", "manager", "service_advisor", "technician"],
   manageStock: ["owner", "manager", "service_advisor"],

@@ -33,6 +33,12 @@ import type {
   StockMovementType,
   Supplier,
   Vehicle,
+  VhcCheck,
+  VhcItem,
+  VhcItemResult,
+  VhcCheckStatus,
+  VhcTemplate,
+  VhcTemplateItem,
   Warehouse,
 } from "@/lib/types";
 
@@ -55,6 +61,12 @@ type EstimateRow = Tables<"estimates"> & {
 };
 type PurchaseOrderRow = Tables<"purchase_orders"> & {
   purchase_order_lines: Tables<"purchase_order_lines">[];
+};
+type VhcCheckRow = Tables<"vhc_checks"> & {
+  vhc_items: Tables<"vhc_items">[];
+};
+type VhcTemplateRow = Tables<"vhc_templates"> & {
+  vhc_template_items: Tables<"vhc_template_items">[];
 };
 
 function mapCustomer(row: CustomerRow): Customer {
@@ -639,6 +651,101 @@ export async function getPurchaseOrder(id: string): Promise<PurchaseOrder | null
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapPurchaseOrder(data as PurchaseOrderRow) : null;
+}
+
+// ---- VHC (Vehicle Health Check) ----
+
+function mapVhcItem(row: Tables<"vhc_items">): VhcItem {
+  return {
+    id: row.id,
+    vhcCheckId: row.vhc_check_id,
+    category: row.category,
+    label: row.label,
+    result: row.result as VhcItemResult,
+    notes: row.notes,
+    photoPaths: row.photo_paths ?? [],
+    estimateLineId: row.estimate_line_id,
+    sortOrder: row.sort_order,
+  };
+}
+
+function mapVhcCheck(row: VhcCheckRow): VhcCheck {
+  return {
+    id: row.id,
+    jobId: row.job_id,
+    templateId: row.template_id,
+    status: row.status as VhcCheckStatus,
+    technicianId: row.technician_id,
+    notes: row.notes,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    sentAt: row.sent_at,
+    items: (row.vhc_items ?? [])
+      .map(mapVhcItem)
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+  };
+}
+
+function mapVhcTemplateItem(row: Tables<"vhc_template_items">): VhcTemplateItem {
+  return {
+    id: row.id,
+    templateId: row.template_id,
+    category: row.category,
+    label: row.label,
+    sortOrder: row.sort_order,
+  };
+}
+
+function mapVhcTemplate(row: VhcTemplateRow): VhcTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    isDefault: row.is_default,
+    items: (row.vhc_template_items ?? [])
+      .map(mapVhcTemplateItem)
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+  };
+}
+
+const VHC_CHECK_SELECT = "*, vhc_items(*)";
+const VHC_TEMPLATE_SELECT = "*, vhc_template_items(*)";
+
+export async function getVhcTemplates(): Promise<VhcTemplate[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("vhc_templates")
+    .select(VHC_TEMPLATE_SELECT)
+    .eq("garage_id", garageId)
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => mapVhcTemplate(row as VhcTemplateRow));
+}
+
+export async function getVhcChecksForJob(jobId: string): Promise<VhcCheck[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("vhc_checks")
+    .select(VHC_CHECK_SELECT)
+    .eq("job_id", jobId)
+    .eq("garage_id", garageId)
+    .order("started_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => mapVhcCheck(row as VhcCheckRow));
+}
+
+export async function getVhcCheck(id: string): Promise<VhcCheck | null> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("vhc_checks")
+    .select(VHC_CHECK_SELECT)
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapVhcCheck(data as VhcCheckRow) : null;
 }
 
 // ---- Bookings ----
