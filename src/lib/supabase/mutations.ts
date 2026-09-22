@@ -11,6 +11,8 @@ import type {
   JobPriority,
   JobStatus,
   JobType,
+  ProductType,
+  PurchaseOrderStatus,
   ServiceDetails,
 } from "@/lib/types";
 import { JOB_TYPE_LABELS } from "@/lib/job-types";
@@ -1146,11 +1148,39 @@ export interface PartInput {
   sku: string;
   name: string;
   supplier?: string;
+  supplierId?: string | null;
   category?: string;
+  productType?: ProductType;
   stockLevel: number;
   reorderLevel: number;
   costPrice: number;
   sellPrice: number;
+  defaultWarehouseId?: string | null;
+  tyreWidth?: number | null;
+  tyreProfile?: number | null;
+  tyreRimSize?: number | null;
+  tyreLoadIndex?: string | null;
+  tyreSpeedRating?: string | null;
+}
+
+function partWriteFields(input: PartInput) {
+  return {
+    sku: input.sku,
+    name: input.name,
+    supplier: input.supplier || null,
+    supplier_id: input.supplierId || null,
+    category: input.category || null,
+    product_type: input.productType ?? "part",
+    reorder_level: input.reorderLevel,
+    cost_price: input.costPrice,
+    sell_price: input.sellPrice,
+    default_warehouse_id: input.defaultWarehouseId || null,
+    tyre_width: input.tyreWidth ?? null,
+    tyre_profile: input.tyreProfile ?? null,
+    tyre_rim_size: input.tyreRimSize ?? null,
+    tyre_load_index: input.tyreLoadIndex || null,
+    tyre_speed_rating: input.tyreSpeedRating || null,
+  };
 }
 
 export async function addPart(input: PartInput): Promise<MutationResult> {
@@ -1159,14 +1189,8 @@ export async function addPart(input: PartInput): Promise<MutationResult> {
 
   const { error } = await supabase.from("parts").insert({
     garage_id: garageId,
-    sku: input.sku,
-    name: input.name,
-    supplier: input.supplier || null,
-    category: input.category || null,
     stock_level: input.stockLevel,
-    reorder_level: input.reorderLevel,
-    cost_price: input.costPrice,
-    sell_price: input.sellPrice,
+    ...partWriteFields(input),
   });
 
   if (error) return { error: error.message };
@@ -1185,16 +1209,7 @@ export async function updatePart(
 
   const { error } = await supabase
     .from("parts")
-    .update({
-      sku: input.sku,
-      name: input.name,
-      supplier: input.supplier || null,
-      category: input.category || null,
-      stock_level: input.stockLevel,
-      reorder_level: input.reorderLevel,
-      cost_price: input.costPrice,
-      sell_price: input.sellPrice,
-    })
+    .update(partWriteFields(input))
     .eq("id", id)
     .eq("garage_id", garageId);
 
@@ -1219,6 +1234,356 @@ export async function deletePart(id: string): Promise<MutationResult> {
 
   revalidatePath("/inventory");
   revalidatePath("/");
+  return {};
+}
+
+// ---- Stock adjustments ----
+
+export interface StockAdjustmentInput {
+  partId: string;
+  warehouseId?: string | null;
+  quantity: number;
+  notes?: string;
+}
+
+export async function adjustStock(
+  input: StockAdjustmentInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  if (input.quantity === 0) return { error: "Quantity must not be zero." };
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("stock_movements").insert({
+    garage_id: garageId,
+    part_id: input.partId,
+    warehouse_id: input.warehouseId || null,
+    movement_type: "adjustment",
+    quantity: input.quantity,
+    notes: input.notes || null,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/inventory");
+  return {};
+}
+
+// ---- Suppliers ----
+
+export interface SupplierInput {
+  name: string;
+  accountNumber?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  postcode?: string;
+  notes?: string;
+}
+
+function supplierWriteFields(input: SupplierInput) {
+  return {
+    name: input.name,
+    account_number: input.accountNumber || null,
+    contact_name: input.contactName || null,
+    email: input.email || null,
+    phone: input.phone || null,
+    address_line_1: input.addressLine1 || null,
+    address_line_2: input.addressLine2 || null,
+    city: input.city || null,
+    postcode: input.postcode || null,
+    notes: input.notes || null,
+  };
+}
+
+export async function addSupplier(input: SupplierInput): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("suppliers").insert({
+    garage_id: garageId,
+    ...supplierWriteFields(input),
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/suppliers");
+  revalidatePath("/inventory");
+  return {};
+}
+
+export async function updateSupplier(
+  id: string,
+  input: SupplierInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("suppliers")
+    .update(supplierWriteFields(input))
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/suppliers");
+  revalidatePath("/inventory");
+  return {};
+}
+
+export async function deleteSupplier(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("suppliers")
+    .delete()
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/suppliers");
+  return {};
+}
+
+// ---- Warehouses ----
+
+export interface WarehouseInput {
+  name: string;
+  isDefault?: boolean;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  postcode?: string;
+  notes?: string;
+}
+
+function warehouseWriteFields(input: WarehouseInput) {
+  return {
+    name: input.name,
+    is_default: input.isDefault ?? false,
+    address_line_1: input.addressLine1 || null,
+    address_line_2: input.addressLine2 || null,
+    city: input.city || null,
+    postcode: input.postcode || null,
+    notes: input.notes || null,
+  };
+}
+
+export async function addWarehouse(input: WarehouseInput): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("warehouses").insert({
+    garage_id: garageId,
+    ...warehouseWriteFields(input),
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/warehouses");
+  return {};
+}
+
+export async function updateWarehouse(
+  id: string,
+  input: WarehouseInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("warehouses")
+    .update(warehouseWriteFields(input))
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/warehouses");
+  return {};
+}
+
+export async function deleteWarehouse(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("warehouses")
+    .delete()
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/warehouses");
+  return {};
+}
+
+// ---- Purchase orders ----
+
+export interface PurchaseOrderLineInput {
+  partId?: string | null;
+  description: string;
+  quantityOrdered: number;
+  unitCost: number;
+}
+
+export interface PurchaseOrderInput {
+  supplierId?: string | null;
+  warehouseId?: string | null;
+  orderDate?: string;
+  expectedDate?: string;
+  notes?: string;
+  lines: PurchaseOrderLineInput[];
+}
+
+export async function createPurchaseOrder(
+  input: PurchaseOrderInput
+): Promise<MutationResult & { id?: string }> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  if (input.lines.length === 0) {
+    return { error: "Add at least one line before creating a purchase order." };
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: po, error } = await supabase
+    .from("purchase_orders")
+    .insert({
+      garage_id: garageId,
+      supplier_id: input.supplierId || null,
+      warehouse_id: input.warehouseId || null,
+      order_date: input.orderDate || null,
+      expected_date: input.expectedDate || null,
+      notes: input.notes || null,
+      status: "draft",
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  const { error: linesError } = await supabase.from("purchase_order_lines").insert(
+    input.lines.map((line) => ({
+      garage_id: garageId,
+      purchase_order_id: po.id,
+      part_id: line.partId || null,
+      description: line.description,
+      quantity_ordered: line.quantityOrdered,
+      unit_cost: line.unitCost,
+    }))
+  );
+
+  if (linesError) return { error: linesError.message };
+
+  revalidatePath("/purchase-orders");
+  return { id: po.id };
+}
+
+export async function updatePurchaseOrderStatus(
+  id: string,
+  status: PurchaseOrderStatus
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("purchase_orders")
+    .update({ status })
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/purchase-orders");
+  revalidatePath(`/purchase-orders/${id}`);
+  return {};
+}
+
+export async function receivePurchaseOrderLine(
+  lineId: string,
+  quantity: number,
+  unitCost?: number
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageStock");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("receive_purchase_order_line", {
+    p_line_id: lineId,
+    p_quantity: quantity,
+    p_unit_cost: unitCost,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/purchase-orders");
+  revalidatePath("/inventory");
   return {};
 }
 

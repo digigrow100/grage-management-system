@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Boxes,
+  Gauge,
   Hash,
   Layers,
   Package,
@@ -13,14 +14,23 @@ import {
   Truck,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { FieldGroup, TextInput } from "@/components/ui/Field";
+import { FieldGroup, Select, TextInput } from "@/components/ui/Field";
 import { addPart } from "@/lib/supabase/mutations";
+import type { ProductType, Supplier } from "@/lib/types";
 
-export function AddPartButton() {
+const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
+  { value: "part", label: "Part" },
+  { value: "tyre", label: "Tyre" },
+  { value: "consumable", label: "Consumable" },
+  { value: "wheel", label: "Wheel" },
+];
+
+export function AddPartButton({ suppliers = [] }: { suppliers?: Supplier[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [productType, setProductType] = useState<ProductType>("part");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,12 +41,18 @@ export function AddPartButton() {
     const result = await addPart({
       name: String(formData.get("name") ?? ""),
       sku: String(formData.get("sku") ?? ""),
-      supplier: String(formData.get("supplier") ?? ""),
+      supplierId: String(formData.get("supplierId") ?? "") || null,
       category: String(formData.get("category") ?? ""),
+      productType: formData.get("productType") as ProductType,
       stockLevel: Number(formData.get("stockLevel") ?? 0),
       reorderLevel: Number(formData.get("reorderLevel") ?? 0),
       costPrice: Number(formData.get("costPrice") ?? 0),
       sellPrice: Number(formData.get("sellPrice") ?? 0),
+      tyreWidth: formData.get("tyreWidth") ? Number(formData.get("tyreWidth")) : null,
+      tyreProfile: formData.get("tyreProfile") ? Number(formData.get("tyreProfile")) : null,
+      tyreRimSize: formData.get("tyreRimSize") ? Number(formData.get("tyreRimSize")) : null,
+      tyreLoadIndex: String(formData.get("tyreLoadIndex") ?? "") || null,
+      tyreSpeedRating: String(formData.get("tyreSpeedRating") ?? "") || null,
     });
 
     setSubmitting(false);
@@ -47,6 +63,7 @@ export function AddPartButton() {
     }
 
     setOpen(false);
+    setProductType("part");
     router.refresh();
   }
 
@@ -64,20 +81,37 @@ export function AddPartButton() {
         open={open}
         onClose={() => setOpen(false)}
         title="New Part"
-        subtitle="Add a part to your inventory"
+        subtitle="Add a part, tyre, consumable, or wheel to your inventory"
         icon={Package}
         maxWidth="max-w-lg"
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
-          <FieldGroup label="Part Name" htmlFor="name" required>
-            <TextInput
-              id="name"
-              name="name"
-              icon={Package}
-              required
-              placeholder="Front Brake Pads (Set)"
-            />
-          </FieldGroup>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FieldGroup label="Part Name" htmlFor="name" required>
+              <TextInput
+                id="name"
+                name="name"
+                icon={Package}
+                required
+                placeholder="Front Brake Pads (Set)"
+              />
+            </FieldGroup>
+            <FieldGroup label="Type" htmlFor="productType">
+              <Select
+                id="productType"
+                name="productType"
+                icon={Tag}
+                value={productType}
+                onChange={(e) => setProductType(e.target.value as ProductType)}
+              >
+                {PRODUCT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </Select>
+            </FieldGroup>
+          </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldGroup label="SKU" htmlFor="sku" required>
@@ -101,14 +135,36 @@ export function AddPartButton() {
             </FieldGroup>
           </div>
 
-          <FieldGroup label="Supplier" htmlFor="supplier">
-            <TextInput
-              id="supplier"
-              name="supplier"
-              icon={Truck}
-              placeholder="Euro Car Parts"
-            />
+          <FieldGroup label="Supplier" htmlFor="supplierId">
+            <Select id="supplierId" name="supplierId" icon={Truck} defaultValue="">
+              <option value="">No supplier linked</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
           </FieldGroup>
+
+          {productType === "tyre" ? (
+            <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-100 p-3 sm:grid-cols-5">
+              <FieldGroup label="Width" htmlFor="tyreWidth">
+                <TextInput id="tyreWidth" name="tyreWidth" type="number" icon={Gauge} placeholder="205" />
+              </FieldGroup>
+              <FieldGroup label="Profile" htmlFor="tyreProfile">
+                <TextInput id="tyreProfile" name="tyreProfile" type="number" placeholder="55" />
+              </FieldGroup>
+              <FieldGroup label="Rim" htmlFor="tyreRimSize">
+                <TextInput id="tyreRimSize" name="tyreRimSize" type="number" step="0.1" placeholder="16" />
+              </FieldGroup>
+              <FieldGroup label="Load index" htmlFor="tyreLoadIndex">
+                <TextInput id="tyreLoadIndex" name="tyreLoadIndex" placeholder="91" />
+              </FieldGroup>
+              <FieldGroup label="Speed rating" htmlFor="tyreSpeedRating">
+                <TextInput id="tyreSpeedRating" name="tyreSpeedRating" placeholder="V" />
+              </FieldGroup>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldGroup label="Stock Level" htmlFor="stockLevel" required>
