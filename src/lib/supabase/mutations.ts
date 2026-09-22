@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "./server";
 import { getCurrentGarageId } from "./garage";
+import { requirePermission, PermissionError } from "@/lib/permissions";
 import type { Json } from "./database.types";
 import type {
   EmployeeRole,
@@ -149,6 +150,13 @@ export async function deleteCustomer(id: string): Promise<MutationResult> {
 }
 
 export async function deleteCustomerCascade(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("deleteTenantData");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -814,6 +822,13 @@ export interface EmployeeInput {
 }
 
 export async function addEmployee(input: EmployeeInput): Promise<MutationResult> {
+  try {
+    await requirePermission("manageEmployees");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -837,6 +852,13 @@ export async function updateEmployee(
   id: string,
   input: EmployeeInput
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageEmployees");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -860,6 +882,13 @@ export async function updateEmployee(
 }
 
 export async function deleteEmployee(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageEmployees");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -954,6 +983,13 @@ export async function updateGarageSettings(
   id: string,
   input: GarageSettingsInput
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
