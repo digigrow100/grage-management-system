@@ -326,6 +326,10 @@ export interface EmployeeWorkingHours {
   endsAt: string | null;
 }
 
+export type ReminderType = "mot" | "service" | "booking" | "general";
+export type ReminderChannel = "in_app" | "email" | "sms";
+export type ReminderStatus = "scheduled" | "sent" | "completed" | "cancelled" | "failed";
+
 export interface Reminder {
   id: string;
   customerId: string | null;
@@ -335,6 +339,22 @@ export interface Reminder {
   done: boolean;
   notes: string | null;
   createdAt: string;
+  reminderType: ReminderType;
+  channel: ReminderChannel;
+  status: ReminderStatus;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  cancelledAt: string | null;
+  errorMessage: string | null;
+}
+
+export interface ReminderSettings {
+  id: string;
+  reminderType: ReminderType;
+  enabled: boolean;
+  daysBefore: number | null;
+  hoursBefore: number | null;
+  emailEnabled: boolean;
 }
 
 export type VatMode = "not_registered" | "inclusive" | "exclusive";

@@ -1320,11 +1320,17 @@ export interface ReminderInput {
   title: string;
   dueDate: string;
   notes?: string;
+  reminderType?: "mot" | "service" | "booking" | "general";
+  channel?: "in_app" | "email" | "sms";
 }
 
 export async function addReminder(input: ReminderInput): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { error } = await supabase.from("reminders").insert({
     garage_id: garageId,
@@ -1333,6 +1339,11 @@ export async function addReminder(input: ReminderInput): Promise<MutationResult>
     title: input.title,
     due_date: input.dueDate,
     notes: input.notes || null,
+    reminder_type: input.reminderType ?? "general",
+    channel: input.channel ?? "in_app",
+    status: "scheduled",
+    scheduled_at: new Date(input.dueDate).toISOString(),
+    created_by: user?.id ?? null,
   });
 
   if (error) return { error: error.message };
@@ -1351,7 +1362,7 @@ export async function toggleReminderDone(
 
   const { error } = await supabase
     .from("reminders")
-    .update({ done })
+    .update({ done, status: done ? "completed" : "scheduled" })
     .eq("id", id)
     .eq("garage_id", garageId);
 
@@ -1359,6 +1370,39 @@ export async function toggleReminderDone(
 
   revalidatePath("/reminders");
   revalidatePath("/");
+  return {};
+}
+
+export async function cancelReminder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("reminders")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/reminders");
+  return {};
+}
+
+export async function retryReminder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("reminders")
+    .update({ status: "scheduled", error_message: null })
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .eq("status", "failed");
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/reminders");
   return {};
 }
 
@@ -1377,6 +1421,73 @@ export async function deleteReminder(id: string): Promise<MutationResult> {
   revalidatePath("/reminders");
   revalidatePath("/");
   return {};
+}
+
+export interface ReminderSettingsInput {
+  reminderType: "mot" | "service" | "booking" | "general";
+  enabled: boolean;
+  daysBefore?: number;
+  hoursBefore?: number;
+  emailEnabled: boolean;
+}
+
+export async function updateReminderSettings(
+  input: ReminderSettingsInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase.from("reminder_settings").upsert(
+    {
+      garage_id: garageId,
+      reminder_type: input.reminderType,
+      enabled: input.enabled,
+      days_before: input.daysBefore ?? null,
+      hours_before: input.hoursBefore ?? null,
+      email_enabled: input.emailEnabled,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "garage_id,reminder_type" }
+  );
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  revalidatePath("/reminders");
+  return {};
+}
+
+/**
+ * Idempotent: only transitions in_app reminders from 'scheduled' to 'sent'
+ * once their scheduled_at has passed — the WHERE status='scheduled' guard
+ * means running this twice never double-processes a reminder. email/sms
+ * reminders are left untouched: no provider is configured, so there is no
+ * real send to perform yet, and this deliberately does not fabricate one.
+ */
+export async function processDueReminders(): Promise<MutationResult & { processed?: number }> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data, error } = await supabase
+    .from("reminders")
+    .update({ status: "sent", sent_at: new Date().toISOString() })
+    .eq("garage_id", garageId)
+    .eq("channel", "in_app")
+    .eq("status", "scheduled")
+    .lte("scheduled_at", new Date().toISOString())
+    .select("id");
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/reminders");
+  return { processed: data?.length ?? 0 };
 }
 
 export interface GarageSettingsInput {

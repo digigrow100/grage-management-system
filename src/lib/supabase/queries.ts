@@ -20,6 +20,10 @@ import type {
   JobStatusHistoryEntry,
   Part,
   Reminder,
+  ReminderChannel,
+  ReminderSettings,
+  ReminderStatus,
+  ReminderType,
   ServiceDetails,
   Vehicle,
 } from "@/lib/types";
@@ -167,6 +171,24 @@ function mapReminder(row: ReminderRow): Reminder {
     done: row.done,
     notes: row.notes,
     createdAt: row.created_at,
+    reminderType: row.reminder_type as ReminderType,
+    channel: row.channel as ReminderChannel,
+    status: row.status as ReminderStatus,
+    scheduledAt: row.scheduled_at,
+    sentAt: row.sent_at,
+    cancelledAt: row.cancelled_at,
+    errorMessage: row.error_message,
+  };
+}
+
+function mapReminderSettings(row: Tables<"reminder_settings">): ReminderSettings {
+  return {
+    id: row.id,
+    reminderType: row.reminder_type as ReminderType,
+    enabled: row.enabled,
+    daysBefore: row.days_before,
+    hoursBefore: row.hours_before,
+    emailEnabled: row.email_enabled,
   };
 }
 
@@ -684,6 +706,17 @@ export async function getReminders(): Promise<Reminder[]> {
     .order("due_date", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapReminder);
+}
+
+export async function getReminderSettings(): Promise<ReminderSettings[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("reminder_settings")
+    .select("*")
+    .eq("garage_id", garageId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapReminderSettings);
 }
 
 // ---- Garage settings ----

@@ -3,6 +3,7 @@ import {
   getGarageClosures,
   getGarageOpeningHours,
   getGarageSettings,
+  getReminderSettings,
   getServiceCatalogue,
 } from "@/lib/supabase/queries";
 import { SettingsForm } from "@/components/forms/SettingsForm";
@@ -10,13 +11,15 @@ import { OpeningHoursEditor } from "@/components/forms/OpeningHoursEditor";
 import { ClosuresManager } from "@/components/forms/ClosuresManager";
 import { CalendarSettingsForm } from "@/components/forms/CalendarSettingsForm";
 import { ServiceCatalogueEditor } from "@/components/forms/ServiceCatalogueEditor";
+import { ReminderSettingsForm } from "@/components/forms/ReminderSettingsForm";
 
 export default async function SettingsPage() {
-  const [settings, openingHours, closures, services] = await Promise.all([
+  const [settings, openingHours, closures, services, reminderSettings] = await Promise.all([
     getGarageSettings(),
     getGarageOpeningHours(),
     getGarageClosures(),
     getServiceCatalogue(),
+    getReminderSettings(),
   ]);
 
   return (
@@ -29,6 +32,7 @@ export default async function SettingsPage() {
           <ClosuresManager closures={closures} />
           <CalendarSettingsForm settings={settings} />
           <ServiceCatalogueEditor services={services} />
+          <ReminderSettingsForm settings={reminderSettings} />
         </div>
       </main>
     </>

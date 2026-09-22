@@ -1137,37 +1137,105 @@ export type Database = {
           },
         ]
       }
-      reminders: {
+      reminder_settings: {
         Row: {
           created_at: string
+          days_before: number | null
+          email_enabled: boolean
+          enabled: boolean
+          garage_id: string
+          hours_before: number | null
+          id: string
+          reminder_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          days_before?: number | null
+          email_enabled?: boolean
+          enabled?: boolean
+          garage_id: string
+          hours_before?: number | null
+          id?: string
+          reminder_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          days_before?: number | null
+          email_enabled?: boolean
+          enabled?: boolean
+          garage_id?: string
+          hours_before?: number | null
+          id?: string
+          reminder_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_settings_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminders: {
+        Row: {
+          cancelled_at: string | null
+          channel: string
+          created_at: string
+          created_by: string | null
           customer_id: string | null
           done: boolean
           due_date: string
+          error_message: string | null
           garage_id: string
           id: string
           notes: string | null
+          reminder_type: string
+          scheduled_at: string | null
+          sent_at: string | null
+          status: string
           title: string
           vehicle_id: string | null
         }
         Insert: {
+          cancelled_at?: string | null
+          channel?: string
           created_at?: string
+          created_by?: string | null
           customer_id?: string | null
           done?: boolean
           due_date: string
+          error_message?: string | null
           garage_id: string
           id?: string
           notes?: string | null
+          reminder_type?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
           title: string
           vehicle_id?: string | null
         }
         Update: {
+          cancelled_at?: string | null
+          channel?: string
           created_at?: string
+          created_by?: string | null
           customer_id?: string | null
           done?: boolean
           due_date?: string
+          error_message?: string | null
           garage_id?: string
           id?: string
           notes?: string | null
+          reminder_type?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
           title?: string
           vehicle_id?: string | null
         }
