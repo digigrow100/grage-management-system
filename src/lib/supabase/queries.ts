@@ -45,6 +45,21 @@ function mapCustomer(row: CustomerRow): Customer {
     createdAt: row.created_at,
     notes: row.notes,
     archived: row.archived,
+    customerType: row.customer_type === "business" ? "business" : "individual",
+    firstName: row.first_name,
+    lastName: row.last_name,
+    businessName: row.business_name,
+    alternateContactName: row.alternate_contact_name,
+    alternateContactPhone: row.alternate_contact_phone,
+    addressLine2: row.address_line_2,
+    county: row.county,
+    countryCode: row.country_code,
+    googlePlaceId: row.google_place_id,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    emailOptIn: row.email_opt_in,
+    smsOptIn: row.sms_opt_in,
+    marketingOptIn: row.marketing_opt_in,
   };
 }
 
@@ -60,6 +75,20 @@ function mapVehicle(row: VehicleRow): Vehicle {
     mileage: row.mileage,
     motDue: row.mot_due,
     lastServiceDate: row.last_service_date,
+    vin: row.vin,
+    fuelType: row.fuel_type,
+    engineCapacityCc: row.engine_capacity_cc,
+    co2Emissions: row.co2_emissions,
+    taxStatus: row.tax_status,
+    taxDueDate: row.tax_due_date,
+    motStatus: row.mot_status,
+    monthOfFirstRegistration: row.month_of_first_registration,
+    dateOfLastV5cIssued: row.date_of_last_v5c_issued,
+    typeApproval: row.type_approval,
+    wheelplan: row.wheelplan,
+    euroStatus: row.euro_status,
+    markedForExport: row.marked_for_export,
+    dvlaLastCheckedAt: row.dvla_last_checked_at,
   };
 }
 

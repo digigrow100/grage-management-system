@@ -19,15 +19,38 @@ export interface MutationResult {
   error?: string;
 }
 
-export async function addCustomer(input: {
+export interface CustomerAddressInput {
+  addressLine: string;
+  addressLine2?: string;
+  city: string;
+  county?: string;
+  postCode: string;
+  countryCode?: string;
+  googlePlaceId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface CustomerContactPrefsInput {
+  emailOptIn?: boolean;
+  smsOptIn?: boolean;
+  marketingOptIn?: boolean;
+}
+
+export interface AddCustomerInput extends CustomerAddressInput, CustomerContactPrefsInput {
+  customerType?: "individual" | "business";
   fullName: string;
+  firstName?: string;
+  lastName?: string;
+  businessName?: string;
+  alternateContactName?: string;
+  alternateContactPhone?: string;
   email: string;
   phone: string;
-  addressLine: string;
-  city: string;
-  postCode: string;
   vehicleRegistration?: string;
-}): Promise<MutationResult> {
+}
+
+export async function addCustomer(input: AddCustomerInput): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -39,8 +62,23 @@ export async function addCustomer(input: {
       email: input.email,
       phone: input.phone,
       address_line: input.addressLine,
+      address_line_2: input.addressLine2 || null,
       city: input.city,
+      county: input.county || null,
       post_code: input.postCode,
+      country_code: input.countryCode || "GB",
+      google_place_id: input.googlePlaceId || null,
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
+      customer_type: input.customerType ?? "individual",
+      first_name: input.firstName || null,
+      last_name: input.lastName || null,
+      business_name: input.businessName || null,
+      alternate_contact_name: input.alternateContactName || null,
+      alternate_contact_phone: input.alternateContactPhone || null,
+      email_opt_in: input.emailOptIn ?? true,
+      sms_opt_in: input.smsOptIn ?? false,
+      marketing_opt_in: input.marketingOptIn ?? false,
     })
     .select("id")
     .single();
@@ -282,17 +320,22 @@ export async function restoreCustomer(id: string): Promise<MutationResult> {
   return {};
 }
 
+export interface UpdateCustomerInput extends CustomerAddressInput, CustomerContactPrefsInput {
+  customerType?: "individual" | "business";
+  fullName: string;
+  firstName?: string;
+  lastName?: string;
+  businessName?: string;
+  alternateContactName?: string;
+  alternateContactPhone?: string;
+  email: string;
+  phone: string;
+  notes?: string;
+}
+
 export async function updateCustomer(
   id: string,
-  input: {
-    fullName: string;
-    email: string;
-    phone: string;
-    addressLine: string;
-    city: string;
-    postCode: string;
-    notes?: string;
-  }
+  input: UpdateCustomerInput
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -304,8 +347,23 @@ export async function updateCustomer(
       email: input.email,
       phone: input.phone,
       address_line: input.addressLine,
+      address_line_2: input.addressLine2 || null,
       city: input.city,
+      county: input.county || null,
       post_code: input.postCode,
+      country_code: input.countryCode || "GB",
+      google_place_id: input.googlePlaceId || null,
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
+      customer_type: input.customerType ?? "individual",
+      first_name: input.firstName || null,
+      last_name: input.lastName || null,
+      business_name: input.businessName || null,
+      alternate_contact_name: input.alternateContactName || null,
+      alternate_contact_phone: input.alternateContactPhone || null,
+      email_opt_in: input.emailOptIn ?? true,
+      sms_opt_in: input.smsOptIn ?? false,
+      marketing_opt_in: input.marketingOptIn ?? false,
       notes: input.notes || null,
     })
     .eq("id", id)
@@ -315,6 +373,150 @@ export async function updateCustomer(
 
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
+  return {};
+}
+
+export interface VehicleDvlaInput {
+  vin?: string | null;
+  fuelType?: string | null;
+  engineCapacityCc?: number | null;
+  co2Emissions?: number | null;
+  taxStatus?: string | null;
+  taxDueDate?: string | null;
+  motStatus?: string | null;
+  monthOfFirstRegistration?: string | null;
+  dateOfLastV5cIssued?: string | null;
+  typeApproval?: string | null;
+  wheelplan?: string | null;
+  euroStatus?: string | null;
+  markedForExport?: boolean | null;
+  dvlaLastCheckedAt?: string | null;
+}
+
+export interface VehicleInput extends VehicleDvlaInput {
+  registration: string;
+  make?: string | null;
+  model?: string | null;
+  year?: number | null;
+  colour?: string | null;
+  mileage?: number | null;
+  motDue?: string | null;
+  lastServiceDate?: string | null;
+}
+
+async function recordMileageIfChanged(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  garageId: string,
+  vehicleId: string,
+  previousMileage: number | null,
+  nextMileage: number | null | undefined
+) {
+  if (nextMileage == null || nextMileage === previousMileage) return;
+  await supabase.from("vehicle_mileage_history").insert({
+    garage_id: garageId,
+    vehicle_id: vehicleId,
+    mileage: nextMileage,
+  });
+}
+
+export async function addVehicle(
+  customerId: string,
+  input: VehicleInput
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: vehicle, error } = await supabase
+    .from("vehicles")
+    .insert({
+      garage_id: garageId,
+      customer_id: customerId,
+      registration: input.registration.trim().toUpperCase(),
+      make: input.make || null,
+      model: input.model || null,
+      year: input.year ?? null,
+      colour: input.colour || null,
+      mileage: input.mileage ?? null,
+      mot_due: input.motDue || null,
+      last_service_date: input.lastServiceDate || null,
+      vin: input.vin || null,
+      fuel_type: input.fuelType || null,
+      engine_capacity_cc: input.engineCapacityCc ?? null,
+      co2_emissions: input.co2Emissions ?? null,
+      tax_status: input.taxStatus || null,
+      tax_due_date: input.taxDueDate || null,
+      mot_status: input.motStatus || null,
+      month_of_first_registration: input.monthOfFirstRegistration || null,
+      date_of_last_v5c_issued: input.dateOfLastV5cIssued || null,
+      type_approval: input.typeApproval || null,
+      wheelplan: input.wheelplan || null,
+      euro_status: input.euroStatus || null,
+      marked_for_export: input.markedForExport ?? null,
+      dvla_last_checked_at: input.dvlaLastCheckedAt || null,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  await recordMileageIfChanged(supabase, garageId, vehicle.id, null, input.mileage);
+
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/customers");
+  return {};
+}
+
+export async function updateVehicle(
+  id: string,
+  input: VehicleInput
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: existing } = await supabase
+    .from("vehicles")
+    .select("customer_id, mileage")
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .single();
+
+  if (!existing) return { error: "Vehicle not found." };
+
+  const { error } = await supabase
+    .from("vehicles")
+    .update({
+      registration: input.registration.trim().toUpperCase(),
+      make: input.make || null,
+      model: input.model || null,
+      year: input.year ?? null,
+      colour: input.colour || null,
+      mileage: input.mileage ?? null,
+      mot_due: input.motDue || null,
+      last_service_date: input.lastServiceDate || null,
+      vin: input.vin || null,
+      fuel_type: input.fuelType || null,
+      engine_capacity_cc: input.engineCapacityCc ?? null,
+      co2_emissions: input.co2Emissions ?? null,
+      tax_status: input.taxStatus || null,
+      tax_due_date: input.taxDueDate || null,
+      mot_status: input.motStatus || null,
+      month_of_first_registration: input.monthOfFirstRegistration || null,
+      date_of_last_v5c_issued: input.dateOfLastV5cIssued || null,
+      type_approval: input.typeApproval || null,
+      wheelplan: input.wheelplan || null,
+      euro_status: input.euroStatus || null,
+      marked_for_export: input.markedForExport ?? null,
+      dvla_last_checked_at: input.dvlaLastCheckedAt || null,
+    })
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+
+  await recordMileageIfChanged(supabase, garageId, id, existing.mileage, input.mileage);
+
+  revalidatePath(`/customers/${existing.customer_id}`);
+  revalidatePath("/customers");
   return {};
 }
 

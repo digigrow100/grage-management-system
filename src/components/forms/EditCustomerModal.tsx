@@ -2,17 +2,33 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Hash, Mail, MapPin, Pencil, Phone, User } from "lucide-react";
+import { Building2, Mail, Pencil, Phone, User, Users } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { FieldGroup, TextArea, TextInput } from "@/components/ui/Field";
+import { FieldGroup, FieldSection, TextArea, TextInput } from "@/components/ui/Field";
+import { AddressAutocomplete, type AddressValue } from "@/components/forms/AddressAutocomplete";
 import { updateCustomer } from "@/lib/supabase/mutations";
-import type { Customer } from "@/lib/types";
+import type { Customer, CustomerType } from "@/lib/types";
+import { cn } from "@/lib/cn";
 
 export function EditCustomerButton({ customer }: { customer: Customer }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customerType, setCustomerType] = useState<CustomerType>(
+    customer.customerType ?? "individual"
+  );
+  const [address, setAddress] = useState<AddressValue>({
+    addressLine: customer.address,
+    addressLine2: customer.addressLine2 ?? "",
+    city: customer.city,
+    county: customer.county ?? "",
+    postCode: customer.postCode,
+    countryCode: customer.countryCode ?? "GB",
+    googlePlaceId: customer.googlePlaceId ?? null,
+    latitude: customer.latitude ?? null,
+    longitude: customer.longitude ?? null,
+  });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -20,13 +36,32 @@ export function EditCustomerButton({ customer }: { customer: Customer }) {
     setError(null);
 
     const formData = new FormData(e.currentTarget);
+    const firstName = String(formData.get("firstName") ?? "").trim();
+    const lastName = String(formData.get("lastName") ?? "").trim();
+    const businessName = String(formData.get("businessName") ?? "").trim();
+    const fullName =
+      customerType === "business" ? businessName : [firstName, lastName].filter(Boolean).join(" ");
+
     const result = await updateCustomer(customer.id, {
-      fullName: String(formData.get("fullName") ?? ""),
+      customerType,
+      fullName: fullName || customer.name,
+      firstName: customerType === "individual" ? firstName : undefined,
+      lastName: customerType === "individual" ? lastName : undefined,
+      businessName: customerType === "business" ? businessName : undefined,
       email: String(formData.get("email") ?? ""),
       phone: String(formData.get("phone") ?? ""),
-      addressLine: String(formData.get("addressLine") ?? ""),
-      city: String(formData.get("city") ?? ""),
-      postCode: String(formData.get("postCode") ?? ""),
+      addressLine: address.addressLine,
+      addressLine2: address.addressLine2,
+      city: address.city,
+      county: address.county,
+      postCode: address.postCode,
+      countryCode: address.countryCode,
+      googlePlaceId: address.googlePlaceId,
+      latitude: address.latitude,
+      longitude: address.longitude,
+      emailOptIn: formData.get("emailOptIn") === "on",
+      smsOptIn: formData.get("smsOptIn") === "on",
+      marketingOptIn: formData.get("marketingOptIn") === "on",
       notes: String(formData.get("notes") ?? ""),
     });
 
@@ -59,16 +94,67 @@ export function EditCustomerButton({ customer }: { customer: Customer }) {
         icon={Pencil}
         maxWidth="max-w-lg"
       >
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <FieldGroup label="Full Name" htmlFor="fullName" required>
-            <TextInput
-              id="fullName"
-              name="fullName"
-              icon={User}
-              required
-              defaultValue={customer.name}
-            />
-          </FieldGroup>
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <FieldSection title="Customer type">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomerType("individual")}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                  customerType === "individual"
+                    ? "border-accent-600 bg-accent-50 text-accent-700"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                <User size={15} /> Individual
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomerType("business")}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                  customerType === "business"
+                    ? "border-accent-600 bg-accent-50 text-accent-700"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                <Users size={15} /> Business
+              </button>
+            </div>
+          </FieldSection>
+
+          {customerType === "individual" ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldGroup label="First name" htmlFor="firstName" required>
+                <TextInput
+                  id="firstName"
+                  name="firstName"
+                  icon={User}
+                  required
+                  defaultValue={customer.firstName ?? ""}
+                />
+              </FieldGroup>
+              <FieldGroup label="Last name" htmlFor="lastName" required>
+                <TextInput
+                  id="lastName"
+                  name="lastName"
+                  required
+                  defaultValue={customer.lastName ?? ""}
+                />
+              </FieldGroup>
+            </div>
+          ) : (
+            <FieldGroup label="Business name" htmlFor="businessName" required>
+              <TextInput
+                id="businessName"
+                name="businessName"
+                icon={Building2}
+                required
+                defaultValue={customer.businessName ?? ""}
+              />
+            </FieldGroup>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldGroup label="Email" htmlFor="email" required>
@@ -94,38 +180,39 @@ export function EditCustomerButton({ customer }: { customer: Customer }) {
             </FieldGroup>
           </div>
 
-          <FieldGroup label="Address Line" htmlFor="addressLine" required>
-            <TextInput
-              id="addressLine"
-              name="addressLine"
-              icon={MapPin}
-              required
-              defaultValue={customer.address}
-            />
-          </FieldGroup>
+          <AddressAutocomplete value={address} onChange={setAddress} />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FieldGroup label="City" htmlFor="city" required>
-              <TextInput
-                id="city"
-                name="city"
-                icon={Building2}
-                required
-                defaultValue={customer.city}
-              />
-            </FieldGroup>
-
-            <FieldGroup label="Post-Code" htmlFor="postCode" required>
-              <TextInput
-                id="postCode"
-                name="postCode"
-                icon={Hash}
-                required
-                defaultValue={customer.postCode}
-                className="uppercase"
-              />
-            </FieldGroup>
-          </div>
+          <FieldSection title="Communication preferences">
+            <div className="space-y-2 text-sm text-slate-700">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="emailOptIn"
+                  defaultChecked={customer.emailOptIn ?? true}
+                  className="rounded border-slate-300"
+                />
+                Email reminders and updates
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="smsOptIn"
+                  defaultChecked={customer.smsOptIn ?? false}
+                  className="rounded border-slate-300"
+                />
+                SMS reminders and updates
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="marketingOptIn"
+                  defaultChecked={customer.marketingOptIn ?? false}
+                  className="rounded border-slate-300"
+                />
+                Marketing communications
+              </label>
+            </div>
+          </FieldSection>
 
           <FieldGroup label="Notes" htmlFor="notes" hint="Optional">
             <TextArea

@@ -8,7 +8,8 @@ import { Card } from "@/components/ui/Card";
 import { DeleteCustomerButton } from "@/components/customers/DeleteCustomerButton";
 import { restoreCustomer } from "@/lib/supabase/mutations";
 import { formatDate } from "@/lib/format";
-import type { Customer, Vehicle } from "@/lib/types";
+import { customerDisplayName, type Customer, type Vehicle } from "@/lib/types";
+import { Badge } from "@/components/ui/Badge";
 
 export function CustomersTable({
   customers,
@@ -39,6 +40,9 @@ export function CustomersTable({
       const customerVehicles = vehiclesByCustomer.get(c.id) ?? [];
       const haystack = [
         c.name,
+        c.businessName,
+        c.firstName,
+        c.lastName,
         c.email,
         c.phone,
         c.city,
@@ -101,8 +105,13 @@ export function CustomersTable({
                         href={`/customers/${c.id}`}
                         className="font-medium text-slate-900 hover:underline"
                       >
-                        {c.name}
+                        {customerDisplayName(c)}
                       </Link>
+                      {c.customerType === "business" ? (
+                        <Badge tone="purple" className="ml-2">
+                          Business
+                        </Badge>
+                      ) : null}
                     </td>
                     <td className="px-5 py-3 text-slate-500">
                       <div>{c.email}</div>
@@ -159,7 +168,9 @@ export function CustomersTable({
                 <tbody>
                   {archivedCustomers.map((c) => (
                     <tr key={c.id} className="border-b border-slate-50 last:border-0">
-                      <td className="px-5 py-3 font-medium text-slate-700">{c.name}</td>
+                      <td className="px-5 py-3 font-medium text-slate-700">
+                      {customerDisplayName(c)}
+                    </td>
                       <td className="px-5 py-3 text-slate-500">{c.email}</td>
                       <td className="px-5 py-3 text-right">
                         <RestoreButton customerId={c.id} />
