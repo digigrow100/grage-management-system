@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { updateJobStatus } from "@/lib/supabase/mutations";
-import { JOB_STATUSES, JOB_STATUS_LABELS } from "@/lib/job-status";
+import { changeJobStatus } from "@/lib/supabase/mutations";
+import { JOB_STATUS_LABELS, JOB_STATUS_TRANSITIONS } from "@/lib/job-status";
 import type { JobStatus } from "@/lib/types";
 
 const statusRingColor: Record<JobStatus, string> = {
@@ -12,8 +12,11 @@ const statusRingColor: Record<JobStatus, string> = {
   checked_in: "border-violet-500/40 text-violet-800 bg-violet-50",
   in_progress: "border-amber-500/40 text-amber-800 bg-amber-50",
   awaiting_parts: "border-rose-500/40 text-rose-800 bg-rose-50",
+  awaiting_authorisation: "border-rose-500/40 text-rose-800 bg-rose-50",
+  authorised: "border-accent-500/40 text-accent-700 bg-accent-50",
   completed: "border-emerald-500/40 text-emerald-800 bg-emerald-50",
   vehicle_released: "border-slate-300 text-slate-700 bg-slate-100",
+  cancelled: "border-slate-300 text-slate-500 bg-slate-100",
   invoiced: "border-slate-300 text-slate-700 bg-slate-100",
 };
 
@@ -30,7 +33,7 @@ export function JobStatusSelect({ jobId, status }: { jobId: string; status: JobS
     setSaving(true);
     setError(null);
 
-    const result = await updateJobStatus(jobId, next);
+    const result = await changeJobStatus(jobId, next);
 
     setSaving(false);
     if (result.error) {
@@ -41,6 +44,11 @@ export function JobStatusSelect({ jobId, status }: { jobId: string; status: JobS
     router.refresh();
   }
 
+  const selectableStatuses: JobStatus[] = [
+    current,
+    ...(JOB_STATUS_TRANSITIONS[current] ?? []),
+  ];
+
   return (
     <div>
       <div className="relative inline-block">
@@ -50,7 +58,7 @@ export function JobStatusSelect({ jobId, status }: { jobId: string; status: JobS
           onChange={(e) => handleChange(e.target.value as JobStatus)}
           className={`appearance-none rounded-full border py-1 pl-3 pr-8 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500/30 disabled:opacity-60 ${statusRingColor[current]}`}
         >
-          {JOB_STATUSES.map((value) => (
+          {selectableStatuses.map((value) => (
             <option key={value} value={value}>
               {JOB_STATUS_LABELS[value]}
             </option>

@@ -3,15 +3,24 @@ import { notFound } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { getCustomer, getEmployees, getJob, getParts, getVehicle } from "@/lib/supabase/queries";
+import {
+  getCustomer,
+  getEmployees,
+  getJob,
+  getJobStatusHistory,
+  getParts,
+  getVehicle,
+} from "@/lib/supabase/queries";
 import { deleteJobCard } from "@/lib/supabase/mutations";
 import { jobLineTotal } from "@/lib/totals";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, History } from "lucide-react";
 import { JobStatusSelect } from "@/components/jobs/JobStatusSelect";
 import { JobPrioritySelect } from "@/components/jobs/JobPrioritySelect";
 import { JobTechnicianSelect } from "@/components/jobs/JobTechnicianSelect";
 import { EditJobLinesButton } from "@/components/jobs/EditJobLinesModal";
+import { JobDetailsForm } from "@/components/jobs/JobDetailsForm";
+import { JOB_STATUS_LABELS } from "@/lib/job-status";
 
 export default async function JobDetailPage({
   params,
@@ -22,11 +31,12 @@ export default async function JobDetailPage({
   const job = await getJob(id);
   if (!job) notFound();
 
-  const [customer, vehicle, employees, parts] = await Promise.all([
+  const [customer, vehicle, employees, parts, statusHistory] = await Promise.all([
     getCustomer(job.customerId),
     job.vehicleId ? getVehicle(job.vehicleId) : Promise.resolve(undefined),
     getEmployees(),
     getParts(),
+    getJobStatusHistory(job.id),
   ]);
   const activeEmployees = employees.filter((e) => e.active);
   const { labour, partsTotal, total } = jobLineTotal(job);
@@ -89,7 +99,7 @@ export default async function JobDetailPage({
               </div>
               <JobTechnicianSelect
                 jobId={job.id}
-                technician={job.technician}
+                employeeId={job.employeeId}
                 employees={activeEmployees}
               />
               <p className="text-slate-500">
@@ -135,6 +145,55 @@ export default async function JobDetailPage({
                 <p className="text-xs text-slate-400">
                   Not yet invoiced
                 </p>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader title="Job details" subtitle="Mileage, complaint and internal notes" />
+            <CardBody>
+              <JobDetailsForm
+                jobId={job.id}
+                mileageIn={job.mileageIn}
+                customerComplaint={job.customerComplaint}
+                internalNotes={job.internalNotes}
+                hasVehicle={Boolean(job.vehicleId)}
+              />
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Status history"
+              subtitle={`${statusHistory.length} change${statusHistory.length === 1 ? "" : "s"}`}
+            />
+            <CardBody className="space-y-3">
+              {statusHistory.length === 0 ? (
+                <p className="text-sm text-slate-400">No status changes recorded yet.</p>
+              ) : (
+                statusHistory.map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-2.5 text-sm">
+                    <History size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                    <div>
+                      <p className="text-slate-900">
+                        {entry.previousStatus ? (
+                          <>
+                            {JOB_STATUS_LABELS[entry.previousStatus]} →{" "}
+                            <span className="font-medium">{JOB_STATUS_LABELS[entry.newStatus]}</span>
+                          </>
+                        ) : (
+                          <span className="font-medium">{JOB_STATUS_LABELS[entry.newStatus]}</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-400">{formatDate(entry.createdAt)}</p>
+                      {entry.reason ? (
+                        <p className="text-xs text-slate-500">{entry.reason}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
               )}
             </CardBody>
           </Card>

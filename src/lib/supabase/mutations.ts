@@ -14,6 +14,7 @@ import type {
   ServiceDetails,
 } from "@/lib/types";
 import { JOB_TYPE_LABELS } from "@/lib/job-types";
+import { JOB_STATUS_LABELS, JOB_STATUS_TRANSITIONS } from "@/lib/job-status";
 
 export interface MutationResult {
   error?: string;
@@ -650,20 +651,77 @@ export async function deleteBooking(id: string): Promise<MutationResult> {
   return {};
 }
 
-export async function updateJobStatus(
+/**
+ * Changes a job's status, validating the transition against
+ * JOB_STATUS_TRANSITIONS, stamping the relevant lifecycle timestamp, and
+ * recording the change in job_status_history. This replaces the old
+ * unconditional updateJobStatus — every status change now goes through one
+ * validated path (spec 5.11: "Status changes must use one server action
+ * that validates transitions, updates timestamps and inserts history").
+ */
+export async function changeJobStatus(
   id: string,
-  status: JobStatus
+  status: JobStatus,
+  reason?: string
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageJobs");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
+  const { data: current, error: currentError } = await supabase
+    .from("job_cards")
+    .select("status")
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .single();
+
+  if (currentError) return { error: currentError.message };
+
+  const previousStatus = current.status as JobStatus;
+  if (previousStatus === status) return {};
+
+  const allowed = JOB_STATUS_TRANSITIONS[previousStatus] ?? [];
+  if (!allowed.includes(status)) {
+    return {
+      error: `Can't move a job from "${JOB_STATUS_LABELS[previousStatus]}" to "${JOB_STATUS_LABELS[status]}".`,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const timestampPatch: Record<string, string> = {};
+  if (status === "checked_in") timestampPatch.checked_in_at = now;
+  if (status === "in_progress") timestampPatch.started_at = now;
+  if (status === "completed") timestampPatch.completed_at = now;
+  if (status === "vehicle_released") timestampPatch.released_at = now;
+
   const { error } = await supabase
     .from("job_cards")
-    .update({ status })
+    .update({ status, ...timestampPatch })
     .eq("id", id)
     .eq("garage_id", garageId);
 
   if (error) return { error: error.message };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error: historyError } = await supabase.from("job_status_history").insert({
+    garage_id: garageId,
+    job_id: id,
+    previous_status: previousStatus,
+    new_status: status,
+    reason: reason || null,
+    changed_by: user?.id ?? null,
+  });
+
+  if (historyError) return { error: historyError.message };
 
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${id}`);
@@ -694,14 +752,18 @@ export async function updateJobPriority(
 
 export async function updateJobTechnician(
   id: string,
-  technician: string | null
+  technician: string | null,
+  employeeId?: string | null
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
   const { error } = await supabase
     .from("job_cards")
-    .update({ technician: technician?.trim() || null })
+    .update({
+      technician: technician?.trim() || null,
+      employee_id: employeeId || null,
+    })
     .eq("id", id)
     .eq("garage_id", garageId);
 
@@ -710,6 +772,104 @@ export async function updateJobTechnician(
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${id}`);
   revalidatePath("/");
+  return {};
+}
+
+export interface JobDetailsInput {
+  customerComplaint?: string;
+  internalNotes?: string;
+}
+
+/**
+ * Updates the non-status, non-technician job detail fields (customer
+ * complaint, internal notes). Kept separate from changeJobStatus/
+ * updateJobTechnician since technicians can edit these without needing
+ * status-change permission.
+ */
+export async function updateJobDetails(
+  id: string,
+  input: JobDetailsInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageJobs");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("job_cards")
+    .update({
+      customer_complaint: input.customerComplaint?.trim() || null,
+      internal_notes: input.internalNotes?.trim() || null,
+    })
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/jobs/${id}`);
+  return {};
+}
+
+/**
+ * Records a mileage-in reading for a job and propagates it to the
+ * vehicle's current mileage + vehicle_mileage_history (spec: mileage
+ * changes must never silently lose history).
+ */
+export async function recordVehicleMileage(
+  jobId: string,
+  mileage: number
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageJobs");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: job, error: jobError } = await supabase
+    .from("job_cards")
+    .select("vehicle_id")
+    .eq("id", jobId)
+    .eq("garage_id", garageId)
+    .single();
+
+  if (jobError) return { error: jobError.message };
+
+  const { error } = await supabase
+    .from("job_cards")
+    .update({ mileage_in: mileage })
+    .eq("id", jobId)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+
+  if (job.vehicle_id) {
+    await supabase
+      .from("vehicles")
+      .update({ mileage })
+      .eq("id", job.vehicle_id)
+      .eq("garage_id", garageId);
+
+    // Always logged (not just on change): a mileage-in reading at check-in
+    // is a genuine odometer reading tied to this specific job, worth
+    // keeping in history even if it happens to match the last value.
+    await supabase.from("vehicle_mileage_history").insert({
+      garage_id: garageId,
+      vehicle_id: job.vehicle_id,
+      job_id: jobId,
+      mileage,
+    });
+  }
+
+  revalidatePath(`/jobs/${jobId}`);
   return {};
 }
 

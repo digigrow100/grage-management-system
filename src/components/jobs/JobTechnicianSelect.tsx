@@ -8,15 +8,15 @@ import type { Employee } from "@/lib/types";
 
 export function JobTechnicianSelect({
   jobId,
-  technician,
+  employeeId,
   employees,
 }: {
   jobId: string;
-  technician: string | null;
+  employeeId: string | null | undefined;
   employees: Employee[];
 }) {
   const router = useRouter();
-  const [current, setCurrent] = useState(technician ?? "");
+  const [current, setCurrent] = useState(employeeId ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +27,8 @@ export function JobTechnicianSelect({
     setSaving(true);
     setError(null);
 
-    const result = await updateJobTechnician(jobId, next || null);
+    const employee = employees.find((e) => e.id === next);
+    const result = await updateJobTechnician(jobId, employee?.fullName ?? null, next || null);
 
     setSaving(false);
     if (result.error) {
@@ -50,7 +51,7 @@ export function JobTechnicianSelect({
         >
           <option value="">Unassigned</option>
           {employees.map((e) => (
-            <option key={e.id} value={e.fullName}>
+            <option key={e.id} value={e.id}>
               {e.fullName}
             </option>
           ))}

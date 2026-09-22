@@ -3,8 +3,12 @@ export type JobStatus =
   | "checked_in"
   | "in_progress"
   | "awaiting_parts"
+  | "awaiting_authorisation"
+  | "authorised"
   | "completed"
   | "vehicle_released"
+  | "cancelled"
+  /** @deprecated Invoice state comes from the linked invoice, not the job status. Kept only to type historic rows. */
   | "invoiced";
 
 export type JobPriority = "low" | "medium" | "high";
@@ -184,6 +188,8 @@ export interface JobPartLine {
   unitPrice: number;
 }
 
+export type JobAuthorizationStatus = "not_required" | "awaiting" | "authorised" | "declined";
+
 export interface JobCard {
   id: string;
   bookingId?: string | null;
@@ -199,6 +205,26 @@ export interface JobCard {
   partLines: JobPartLine[];
   notes?: string | null;
   invoiceId?: string;
+  jobNumber?: string | null;
+  employeeId?: string | null;
+  checkedInAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  releasedAt?: string | null;
+  authorizationStatus?: JobAuthorizationStatus;
+  mileageIn?: number | null;
+  customerComplaint?: string | null;
+  internalNotes?: string | null;
+}
+
+export interface JobStatusHistoryEntry {
+  id: string;
+  jobId: string;
+  previousStatus: JobStatus | null;
+  newStatus: JobStatus;
+  reason: string | null;
+  changedBy: string | null;
+  createdAt: string;
 }
 
 export interface InvoiceLineItem {
