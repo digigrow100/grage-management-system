@@ -16,7 +16,9 @@ import { invoiceTotals } from "@/lib/totals";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/format";
 import { ArrowLeft } from "lucide-react";
 import { EditCustomerButton } from "@/components/forms/EditCustomerModal";
+import { AddVehicleButton, EditVehicleButton } from "@/components/forms/VehicleFormModal";
 import { JOB_STATUS_LABELS, JOB_STATUS_TONE } from "@/lib/job-status";
+import { customerDisplayName } from "@/lib/types";
 
 const invoiceStatusTone: Record<string, "neutral" | "blue" | "green" | "amber" | "red" | "purple"> = {
   estimate: "purple",
@@ -42,9 +44,11 @@ export default async function CustomerDetailPage({
     getInvoicesForCustomer(customer.id),
   ]);
 
+  const displayName = customerDisplayName(customer);
+
   return (
     <>
-      <TopBar title={customer.name} subtitle={customer.email} />
+      <TopBar title={displayName} subtitle={customer.email} />
       <main className="flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
         <Link
           href="/customers"
@@ -81,8 +85,18 @@ export default async function CustomerDetailPage({
               </p>
               <p>
                 <span className="text-slate-500">Address:</span>{" "}
-                {customer.address}, {customer.city} {customer.postCode}
+                {[customer.address, customer.addressLine2].filter(Boolean).join(", ")},{" "}
+                {customer.city}
+                {customer.county ? `, ${customer.county}` : ""} {customer.postCode}
               </p>
+              {customer.alternateContactName || customer.alternateContactPhone ? (
+                <p>
+                  <span className="text-slate-500">Alternate contact:</span>{" "}
+                  {[customer.alternateContactName, customer.alternateContactPhone]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
               <p>
                 <span className="text-slate-500">Customer since:</span>{" "}
                 {formatDate(customer.createdAt)}
@@ -99,6 +113,7 @@ export default async function CustomerDetailPage({
             <CardHeader
               title="Vehicles"
               subtitle={`${vehicles.length} on record`}
+              action={<AddVehicleButton customerId={customer.id} />}
             />
             <CardBody className="p-0">
               <div className="overflow-x-auto">
@@ -109,7 +124,8 @@ export default async function CustomerDetailPage({
                     <th className="px-5 py-2 font-medium">Vehicle</th>
                     <th className="px-5 py-2 font-medium">Mileage</th>
                     <th className="px-5 py-2 font-medium">MOT due</th>
-                    <th className="px-5 py-2 font-medium">Last service</th>
+                    <th className="px-5 py-2 font-medium">Tax</th>
+                    <th className="px-5 py-2 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -126,6 +142,9 @@ export default async function CustomerDetailPage({
                         <td className="px-5 py-3 text-slate-700">
                           {[v.year, v.make, v.model].filter(Boolean).join(" ")}
                           {v.colour ? ` · ${v.colour}` : ""}
+                          {v.fuelType ? (
+                            <span className="block text-xs text-slate-400">{v.fuelType}</span>
+                          ) : null}
                         </td>
                         <td className="px-5 py-3 text-slate-500">
                           {v.mileage != null ? `${v.mileage.toLocaleString()} mi` : "—"}
@@ -140,16 +159,17 @@ export default async function CustomerDetailPage({
                           )}
                         </td>
                         <td className="px-5 py-3 text-slate-500">
-                          {v.lastServiceDate
-                            ? formatDate(v.lastServiceDate)
-                            : "—"}
+                          {v.taxStatus ?? "—"}
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <EditVehicleButton vehicle={v} />
                         </td>
                       </tr>
                     );
                   })}
                   {vehicles.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-5 py-6 text-center text-sm text-slate-400">
+                      <td colSpan={6} className="px-5 py-6 text-center text-sm text-slate-400">
                         No vehicles on record.
                       </td>
                     </tr>
