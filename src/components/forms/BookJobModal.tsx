@@ -4,18 +4,21 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarClock,
+  Clock,
   ClipboardList,
   DoorOpen,
   FileText,
   Flag,
   PoundSterling,
   Plus,
+  Timer,
   User,
   Wrench,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { FieldGroup, Select, TextArea, TextInput } from "@/components/ui/Field";
+import { FieldGroup, FieldSection, Select, TextArea, TextInput } from "@/components/ui/Field";
 import { ServiceSpecificFields } from "@/components/forms/ServiceSpecificFields";
+import { AddressAutocomplete, EMPTY_ADDRESS, type AddressValue } from "@/components/forms/AddressAutocomplete";
 import { addBooking } from "@/lib/supabase/mutations";
 import { JOB_TYPES, JOB_TYPE_LABELS } from "@/lib/job-types";
 import { JOB_PRIORITIES, JOB_PRIORITY_LABELS } from "@/lib/job-status";
@@ -27,7 +30,8 @@ import {
   type ServiceFieldValues,
   type StorageFormValues,
 } from "@/lib/service-fields";
-import type { Customer, Employee, JobPriority, JobType } from "@/lib/types";
+import type { BookingLocationType, Customer, Employee, JobPriority, JobType } from "@/lib/types";
+import { cn } from "@/lib/cn";
 
 export function BookJobButton({
   customers,
@@ -46,6 +50,8 @@ export function BookJobButton({
   const [estPrice, setEstPrice] = useState("");
   const [serviceValues, setServiceValues] = useState<ServiceFieldValues>({});
   const [storageValues, setStorageValues] = useState<StorageFormValues>(EMPTY_STORAGE_VALUES);
+  const [locationType, setLocationType] = useState<BookingLocationType>("garage");
+  const [location, setLocation] = useState<AddressValue>(EMPTY_ADDRESS);
 
   const storageError =
     jobType === "vehicle_storage" &&
@@ -89,6 +95,8 @@ export function BookJobButton({
     setEstPrice("");
     setServiceValues({});
     setStorageValues(EMPTY_STORAGE_VALUES);
+    setLocationType("garage");
+    setLocation(EMPTY_ADDRESS);
     setError(null);
   }
 
@@ -110,16 +118,29 @@ export function BookJobButton({
 
     const formData = new FormData(e.currentTarget);
     const serviceDetails = buildServiceDetails(jobType, serviceValues, storageValues);
+    const employeeId = String(formData.get("employeeId") ?? "");
+    const employee = activeEmployees.find((e) => e.id === employeeId);
     const result = await addBooking({
       customerId: String(formData.get("customer") ?? ""),
       jobType: jobType as JobType,
       date: String(formData.get("date") ?? ""),
+      time: String(formData.get("time") ?? ""),
+      durationMinutes: formData.get("durationMinutes")
+        ? Number(formData.get("durationMinutes"))
+        : undefined,
       estPrice: estPrice ? Number(estPrice) : undefined,
       priority: String(formData.get("priority") ?? "medium") as JobPriority,
-      technician: String(formData.get("technician") ?? ""),
+      technician: employee?.fullName ?? "",
+      employeeId: employeeId || undefined,
       bay: String(formData.get("bay") ?? ""),
       notes: String(formData.get("notes") ?? ""),
       serviceDetails,
+      locationType,
+      addressLine: location.addressLine,
+      postCode: location.postCode,
+      googlePlaceId: location.googlePlaceId,
+      latitude: location.latitude,
+      longitude: location.longitude,
     });
 
     setSubmitting(false);
@@ -197,25 +218,41 @@ export function BookJobButton({
             />
           ) : null}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <FieldGroup label="Date" htmlFor="date" required>
               <TextInput id="date" name="date" type="date" icon={CalendarClock} required />
             </FieldGroup>
 
-            <FieldGroup label="Est. Price (£)" htmlFor="estPrice">
+            <FieldGroup label="Time" htmlFor="time" required>
+              <TextInput id="time" name="time" type="time" icon={Clock} required defaultValue="09:00" />
+            </FieldGroup>
+
+            <FieldGroup label="Duration (mins)" htmlFor="durationMinutes">
               <TextInput
-                id="estPrice"
-                name="estPrice"
+                id="durationMinutes"
+                name="durationMinutes"
                 type="number"
-                icon={PoundSterling}
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={estPrice}
-                onChange={(e) => setEstPrice(e.target.value)}
+                icon={Timer}
+                min="15"
+                step="15"
+                defaultValue="60"
               />
             </FieldGroup>
           </div>
+
+          <FieldGroup label="Est. Price (£)" htmlFor="estPrice">
+            <TextInput
+              id="estPrice"
+              name="estPrice"
+              type="number"
+              icon={PoundSterling}
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={estPrice}
+              onChange={(e) => setEstPrice(e.target.value)}
+            />
+          </FieldGroup>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldGroup label="Priority" htmlFor="priority">
@@ -228,11 +265,11 @@ export function BookJobButton({
               </Select>
             </FieldGroup>
 
-            <FieldGroup label="Technician" htmlFor="technician">
-              <Select id="technician" name="technician" icon={Wrench} defaultValue="">
+            <FieldGroup label="Technician" htmlFor="employeeId">
+              <Select id="employeeId" name="employeeId" icon={Wrench} defaultValue="">
                 <option value="">Unassigned</option>
                 {activeEmployees.map((e) => (
-                  <option key={e.id} value={e.fullName}>
+                  <option key={e.id} value={e.id}>
                     {e.fullName}
                   </option>
                 ))}
@@ -243,6 +280,34 @@ export function BookJobButton({
           <FieldGroup label="Bay" htmlFor="bay">
             <TextInput id="bay" name="bay" icon={DoorOpen} placeholder="e.g. Bay 2" />
           </FieldGroup>
+
+          <FieldSection title="Where will this job take place?">
+            <div className="flex gap-2">
+              {(
+                [
+                  { value: "garage", label: "At the garage" },
+                  { value: "customer_address", label: "Off-site" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setLocationType(opt.value)}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    locationType === opt.value
+                      ? "border-accent-600 bg-accent-50 text-accent-700"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {locationType !== "garage" ? (
+              <AddressAutocomplete value={location} onChange={setLocation} />
+            ) : null}
+          </FieldSection>
 
           <FieldGroup label="Notes" htmlFor="notes">
             <div className="relative">

@@ -120,6 +120,18 @@ function mapBooking(row: BookingRow): Booking {
     estPrice: row.est_price,
     notes: row.notes,
     serviceDetails: (row.service_details as ServiceDetails | null) ?? null,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    status: (row.status as Booking["status"]) ?? "confirmed",
+    employeeId: row.employee_id,
+    serviceId: row.service_id,
+    locationType: (row.location_type as Booking["locationType"]) ?? "garage",
+    addressLine: row.address_line,
+    postCode: row.post_code,
+    googlePlaceId: row.google_place_id,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    source: row.source,
   };
 }
 
