@@ -248,6 +248,39 @@ export interface Invoice {
   notes?: string | null;
 }
 
+export type EstimateStatus = "draft" | "sent" | "accepted" | "declined" | "expired" | "booked";
+export type EstimateLineType = "labour" | "part" | "other";
+
+export interface EstimateLine {
+  id: string;
+  serviceId: string | null;
+  lineType: EstimateLineType;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  vatRate: number | null;
+  lineTotal: number;
+  durationMinutes: number | null;
+  sortOrder: number;
+}
+
+export interface Estimate {
+  id: string;
+  estimateNumber: string | null;
+  customerId: string | null;
+  vehicleId: string | null;
+  status: EstimateStatus;
+  issueDate: string;
+  validUntil: string | null;
+  notes: string | null;
+  subtotal: number;
+  vatTotal: number;
+  total: number;
+  bookedJobId: string | null;
+  createdAt: string;
+  lines: EstimateLine[];
+}
+
 export interface Part {
   id: string;
   sku: string;

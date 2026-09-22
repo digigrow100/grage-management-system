@@ -6,6 +6,8 @@ import type {
   Customer,
   Employee,
   EmployeeRole,
+  Estimate,
+  EstimateLine,
   GarageSettings,
   Invoice,
   InvoiceLineItem,
@@ -32,6 +34,9 @@ type JobCardRow = Tables<"job_cards"> & {
 };
 type InvoiceRow = Tables<"invoices"> & {
   invoice_line_items: Tables<"invoice_line_items">[];
+};
+type EstimateRow = Tables<"estimates"> & {
+  estimate_lines: Tables<"estimate_lines">[];
 };
 
 function mapCustomer(row: CustomerRow): Customer {
@@ -248,8 +253,46 @@ function mapInvoice(row: InvoiceRow): Invoice {
   };
 }
 
+function mapEstimateLine(row: Tables<"estimate_lines">): EstimateLine {
+  return {
+    id: row.id,
+    serviceId: row.service_id,
+    lineType: row.line_type as EstimateLine["lineType"],
+    description: row.description,
+    quantity: row.quantity,
+    unitPrice: row.unit_price,
+    vatRate: row.vat_rate,
+    lineTotal: row.line_total,
+    durationMinutes: row.duration_minutes,
+    sortOrder: row.sort_order,
+  };
+}
+
+function mapEstimate(row: EstimateRow): Estimate {
+  return {
+    id: row.id,
+    estimateNumber: row.estimate_number,
+    customerId: row.customer_id,
+    vehicleId: row.vehicle_id,
+    status: row.status as Estimate["status"],
+    issueDate: row.issue_date,
+    validUntil: row.valid_until,
+    notes: row.notes,
+    subtotal: row.subtotal,
+    vatTotal: row.vat_total,
+    total: row.total,
+    bookedJobId: row.booked_job_id,
+    createdAt: row.created_at,
+    lines: (row.estimate_lines ?? [])
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(mapEstimateLine),
+  };
+}
+
 const JOB_CARD_SELECT = "*, job_labour_lines(*), job_part_lines(*)";
 const INVOICE_SELECT = "*, invoice_line_items(*)";
+const ESTIMATE_SELECT = "*, estimate_lines(*)";
 
 // ---- Customers ----
 
@@ -524,6 +567,46 @@ export async function getInvoice(id: string): Promise<Invoice | undefined> {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapInvoice(data as InvoiceRow) : undefined;
+}
+
+// ---- Estimates ----
+
+export async function getEstimates(): Promise<Estimate[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("estimates")
+    .select(ESTIMATE_SELECT)
+    .eq("garage_id", garageId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => mapEstimate(row as EstimateRow));
+}
+
+export async function getEstimatesForCustomer(customerId: string): Promise<Estimate[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("estimates")
+    .select(ESTIMATE_SELECT)
+    .eq("customer_id", customerId)
+    .eq("garage_id", garageId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => mapEstimate(row as EstimateRow));
+}
+
+export async function getEstimate(id: string): Promise<Estimate | undefined> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("estimates")
+    .select(ESTIMATE_SELECT)
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapEstimate(data as EstimateRow) : undefined;
 }
 
 // ---- Employees ----
