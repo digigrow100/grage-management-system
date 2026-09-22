@@ -34,7 +34,26 @@ export interface Vehicle {
   mileage: number | null;
   motDue: string | null; // ISO date
   lastServiceDate: string | null;
+  // DVLA Vehicle Enquiry Service fields — populated only after a lookup is
+  // confirmed by the user (see src/lib/dvla). All optional: manual vehicle
+  // entry never depends on these.
+  vin?: string | null;
+  fuelType?: string | null;
+  engineCapacityCc?: number | null;
+  co2Emissions?: number | null;
+  taxStatus?: string | null;
+  taxDueDate?: string | null;
+  motStatus?: string | null;
+  monthOfFirstRegistration?: string | null;
+  dateOfLastV5cIssued?: string | null;
+  typeApproval?: string | null;
+  wheelplan?: string | null;
+  euroStatus?: string | null;
+  markedForExport?: boolean | null;
+  dvlaLastCheckedAt?: string | null;
 }
+
+export type CustomerType = "individual" | "business";
 
 export interface Customer {
   id: string;
@@ -47,6 +66,34 @@ export interface Customer {
   createdAt: string;
   notes?: string | null;
   archived: boolean;
+  // Structured fields (spec 5.4) — optional until every read path is
+  // migrated off the single full_name/address_line fields above.
+  customerType?: CustomerType;
+  firstName?: string | null;
+  lastName?: string | null;
+  businessName?: string | null;
+  alternateContactName?: string | null;
+  alternateContactPhone?: string | null;
+  addressLine2?: string | null;
+  county?: string | null;
+  countryCode?: string;
+  googlePlaceId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  emailOptIn?: boolean;
+  smsOptIn?: boolean;
+  marketingOptIn?: boolean;
+}
+
+/** Display name per spec 5.4: business name, else first+last, else full_name. */
+export function customerDisplayName(customer: Customer): string {
+  if (customer.customerType === "business" && customer.businessName) {
+    return customer.businessName;
+  }
+  if (customer.firstName || customer.lastName) {
+    return [customer.firstName, customer.lastName].filter(Boolean).join(" ");
+  }
+  return customer.name;
 }
 
 export type TyreCondition = "new" | "part_worn";
@@ -188,6 +235,21 @@ export interface Employee {
   hourlyRate: number;
   active: boolean;
   createdAt: string;
+  userId?: string | null;
+  colour?: string | null;
+  specialties?: string[];
+  defaultWorkingStart?: string | null;
+  defaultWorkingEnd?: string | null;
+  archivedAt?: string | null;
+}
+
+export interface EmployeeWorkingHours {
+  id: string;
+  employeeId: string;
+  weekday: number; // 0 (Sunday) – 6 (Saturday)
+  isWorking: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
 }
 
 export interface Reminder {
@@ -201,6 +263,8 @@ export interface Reminder {
   createdAt: string;
 }
 
+export type VatMode = "not_registered" | "inclusive" | "exclusive";
+
 export interface GarageSettings {
   id: string;
   garageName: string;
@@ -210,9 +274,57 @@ export interface GarageSettings {
   vatNumber: string;
   defaultVatRate: number;
   invoicePrefix: string;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  logoUrl?: string | null;
+  timezone?: string;
+  currency?: string;
+  vatMode?: VatMode;
+  defaultLabourRate?: number;
+  calendarStartHour?: number;
+  calendarEndHour?: number;
+  calendarSlotMinutes?: number;
+  allowOverlappingJobs?: boolean;
+  smartGapMinutes?: number;
 }
 
-export type GarageRole = "owner" | "manager" | "technician" | "other";
+export interface GarageOpeningHours {
+  id: string;
+  weekday: number;
+  isClosed: boolean;
+  is24Hours: boolean;
+  opensAt: string | null;
+  closesAt: string | null;
+}
+
+export interface GarageClosure {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  title: string | null;
+  closureType: string;
+}
+
+export interface ServiceCatalogueItem {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  defaultDurationMinutes: number;
+  defaultLabourPrice: number | null;
+  vatRate: number | null;
+  active: boolean;
+}
+
+export interface VehicleMileageEntry {
+  id: string;
+  vehicleId: string;
+  jobId: string | null;
+  mileage: number;
+  recordedAt: string;
+}
+
+export type GarageRole = "owner" | "manager" | "service_advisor" | "technician";
 
 export interface Garage {
   id: string;

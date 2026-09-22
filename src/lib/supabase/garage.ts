@@ -30,7 +30,7 @@ export const getUserGarages = cache(async (): Promise<Garage[]> => {
   return (garages ?? []).map((g) => ({
     id: g.id,
     name: g.garage_name,
-    role: (roleById.get(g.id) ?? "other") as GarageRole,
+    role: (roleById.get(g.id) ?? "technician") as GarageRole,
   }));
 });
 
