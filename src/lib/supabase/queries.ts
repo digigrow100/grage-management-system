@@ -8,7 +8,10 @@ import type {
   EmployeeRole,
   Estimate,
   EstimateLine,
+  GarageClosure,
+  GarageOpeningHours,
   GarageSettings,
+  ServiceCatalogueItem,
   Invoice,
   InvoiceLineItem,
   JobCard,
@@ -177,6 +180,52 @@ function mapGarageSettings(row: GarageSettingsRow): GarageSettings {
     vatNumber: row.vat_number,
     defaultVatRate: row.default_vat_rate,
     invoicePrefix: row.invoice_prefix,
+    contactEmail: row.contact_email,
+    contactPhone: row.contact_phone,
+    logoUrl: row.logo_url,
+    timezone: row.timezone,
+    currency: row.currency,
+    vatMode: row.vat_mode as GarageSettings["vatMode"],
+    defaultLabourRate: row.default_labour_rate,
+    calendarStartHour: row.calendar_start_hour,
+    calendarEndHour: row.calendar_end_hour,
+    calendarSlotMinutes: row.calendar_slot_minutes,
+    allowOverlappingJobs: row.allow_overlapping_jobs,
+    smartGapMinutes: row.smart_gap_minutes,
+  };
+}
+
+function mapOpeningHours(row: Tables<"garage_opening_hours">): GarageOpeningHours {
+  return {
+    id: row.id,
+    weekday: row.weekday,
+    isClosed: row.is_closed,
+    is24Hours: row.is_24_hours,
+    opensAt: row.opens_at,
+    closesAt: row.closes_at,
+  };
+}
+
+function mapClosure(row: Tables<"garage_closures">): GarageClosure {
+  return {
+    id: row.id,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    title: row.title,
+    closureType: row.closure_type,
+  };
+}
+
+function mapServiceCatalogueItem(row: Tables<"service_catalogue">): ServiceCatalogueItem {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    category: row.category,
+    defaultDurationMinutes: row.default_duration_minutes,
+    defaultLabourPrice: row.default_labour_price,
+    vatRate: row.vat_rate,
+    active: row.active,
   };
 }
 
@@ -659,4 +708,40 @@ export async function getGarageSettings(): Promise<GarageSettings> {
     defaultVatRate: 20,
     invoicePrefix: "INV",
   };
+}
+
+export async function getGarageOpeningHours(): Promise<GarageOpeningHours[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("garage_opening_hours")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("weekday", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapOpeningHours);
+}
+
+export async function getGarageClosures(): Promise<GarageClosure[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("garage_closures")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("starts_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapClosure);
+}
+
+export async function getServiceCatalogue(): Promise<ServiceCatalogueItem[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("service_catalogue")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapServiceCatalogueItem);
 }
