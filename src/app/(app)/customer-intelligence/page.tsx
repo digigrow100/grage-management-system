@@ -25,10 +25,13 @@ export default async function CustomerIntelligencePage() {
 
   // Only count visits that have actually happened, so a future booking can't
   // masquerade as the customer's most recent (and put them in "Active").
+  // Cancelled/no-show bookings never happened either, so they're excluded
+  // the same way — a no-show shouldn't count as a visit.
   const today = new Date().toISOString().slice(0, 10);
   const bookingsByCustomer = new Map<string, string[]>();
   for (const b of bookings) {
     if (b.date > today) continue;
+    if (b.status === "cancelled" || b.status === "no_show") continue;
     const list = bookingsByCustomer.get(b.customerId) ?? [];
     list.push(b.date);
     bookingsByCustomer.set(b.customerId, list);

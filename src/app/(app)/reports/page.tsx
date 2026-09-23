@@ -121,25 +121,29 @@ export default async function ReportsPage({
     .filter((i) => i.status === "sent" || i.status === "overdue")
     .reduce((sum, inv) => sum + invoiceTotals(inv).total, 0);
 
+  // Cancelled jobs never billed anything (their lines were entered before
+  // cancellation), so they're excluded from every revenue/usage aggregate
+  // below — same reasoning as the completion-rate exclusion.
+  const billableJobs = jobsInRange.filter((j) => j.status !== "cancelled");
+
   const avgJobValue =
-    jobsInRange.length > 0
-      ? jobsInRange.reduce((sum, j) => sum + jobLineTotal(j).total, 0) / jobsInRange.length
+    billableJobs.length > 0
+      ? billableJobs.reduce((sum, j) => sum + jobLineTotal(j).total, 0) / billableJobs.length
       : 0;
 
   const inventoryValue = parts.reduce((sum, p) => sum + p.stockLevel * p.costPrice, 0);
 
   // Completion rate: cancelled jobs are out-of-scope, not a failure of
   // workshop throughput, so they're excluded from the denominator.
-  const completableJobs = jobsInRange.filter((j) => j.status !== "cancelled");
-  const completedJobs = completableJobs.filter(
+  const completedJobs = billableJobs.filter(
     (j) => j.status === "completed" || j.status === "vehicle_released"
   );
   const completionRate =
-    completableJobs.length > 0 ? (completedJobs.length / completableJobs.length) * 100 : null;
+    billableJobs.length > 0 ? (completedJobs.length / billableJobs.length) * 100 : null;
 
   // Labour vs parts revenue split across jobs in range.
-  const labourTotal = jobsInRange.reduce((sum, j) => sum + jobLineTotal(j).labour, 0);
-  const partsRevenueTotal = jobsInRange.reduce((sum, j) => sum + jobLineTotal(j).partsTotal, 0);
+  const labourTotal = billableJobs.reduce((sum, j) => sum + jobLineTotal(j).labour, 0);
+  const partsRevenueTotal = billableJobs.reduce((sum, j) => sum + jobLineTotal(j).partsTotal, 0);
   const labourPartsTotal = labourTotal + partsRevenueTotal;
 
   const months = lastSixMonths();
@@ -197,7 +201,7 @@ export default async function ReportsPage({
 
   // Top parts by usage, within range.
   const partUsage = new Map<string, { description: string; quantity: number; revenue: number }>();
-  for (const job of jobsInRange) {
+  for (const job of billableJobs) {
     for (const line of job.partLines) {
       const key = line.partId ?? `adhoc:${line.description}`;
       const existing = partUsage.get(key) ?? { description: line.description, quantity: 0, revenue: 0 };
@@ -215,7 +219,7 @@ export default async function ReportsPage({
   // Top services: resolved via the job's originating booking's job type,
   // since job_cards don't carry a service/type field of their own.
   const serviceUsage = new Map<string, { count: number; revenue: number }>();
-  for (const job of jobsInRange) {
+  for (const job of billableJobs) {
     const jobType: JobType | "other" =
       (job.bookingId && bookingJobTypeById.get(job.bookingId)) || "other";
     const existing = serviceUsage.get(jobType) ?? { count: 0, revenue: 0 };
@@ -235,7 +239,7 @@ export default async function ReportsPage({
     string,
     { jobs: JobCard[]; completed: number; revenue: number }
   >();
-  for (const job of jobsInRange) {
+  for (const job of billableJobs) {
     if (!job.employeeId) continue;
     const existing = technicianStats.get(job.employeeId) ?? { jobs: [], completed: 0, revenue: 0 };
     existing.jobs.push(job);
@@ -312,7 +316,7 @@ export default async function ReportsPage({
             value={completionRate === null ? "—" : `${completionRate.toFixed(0)}%`}
             icon={CheckCircle2}
             tone="green"
-            hint={`${completedJobs.length} of ${completableJobs.length} jobs (excl. cancelled)`}
+            hint={`${completedJobs.length} of ${billableJobs.length} jobs (excl. cancelled)`}
           />
           <StatCard
             label="Labour revenue"
