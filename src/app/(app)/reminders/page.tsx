@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { getActiveCustomers, getCustomers, getReminders } from "@/lib/supabase/queries";
+import { processDueReminders } from "@/lib/supabase/mutations";
 import { AddReminderButton } from "@/components/forms/AddReminderModal";
 import { ReminderRow } from "@/components/reminders/ReminderRow";
 import { cn } from "@/lib/cn";
@@ -33,6 +34,13 @@ export default async function RemindersPage({
   const activeStatus = (status ?? "all") as ReminderStatus | "all";
   const activeType = (type ?? "all") as ReminderType | "all";
   const search = (q ?? "").trim().toLowerCase();
+
+  // No scheduler runs processDueReminders() on a timer, so it's run
+  // opportunistically here: any in_app reminder whose scheduled_at has
+  // passed flips from "scheduled" to "sent" the next time someone opens
+  // this page. Idempotent (WHERE status='scheduled'), so this is safe to
+  // run on every load.
+  await processDueReminders();
 
   const [reminders, customers, activeCustomers] = await Promise.all([
     getReminders(),
