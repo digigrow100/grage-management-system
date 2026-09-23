@@ -56,8 +56,16 @@ const RANGE_TABS: { value: RangeKey; label: string }[] = [
   { value: "all", label: "All time" },
 ];
 
+// Formats a Date's own local calendar day as YYYY-MM-DD. Deliberately NOT
+// d.toISOString().slice(0, 10) — that converts to UTC first, which can shift
+// the date by a day (e.g. local midnight in a positive UTC offset becomes
+// "yesterday" in UTC), throwing off "This month"/"This year" boundaries
+// whenever the server isn't running in UTC.
 function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function rangeStart(range: RangeKey): string | null {
