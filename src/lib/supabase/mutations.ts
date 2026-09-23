@@ -14,6 +14,7 @@ import type {
   ProductType,
   PurchaseOrderStatus,
   ServiceDetails,
+  VehicleHistory,
 } from "@/lib/types";
 import { JOB_TYPE_LABELS } from "@/lib/job-types";
 import { JOB_STATUS_LABELS, JOB_STATUS_TRANSITIONS } from "@/lib/job-status";
@@ -1144,6 +1145,102 @@ export async function deleteInvoice(id: string): Promise<MutationResult> {
   return {};
 }
 
+// ---- Credit notes ----
+
+export interface CreditNoteLineInput {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CreditNoteInput {
+  invoiceId: string;
+  customerId: string;
+  date?: string;
+  reason?: string;
+  vatRate: number;
+  notes?: string;
+  lineItems: CreditNoteLineInput[];
+}
+
+export async function createCreditNote(
+  input: CreditNoteInput
+): Promise<MutationResult & { id?: string }> {
+  try {
+    await requirePermission("manageInvoices");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  if (input.lineItems.length === 0) {
+    return { error: "Add at least one line before issuing a credit note." };
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: creditNote, error } = await supabase
+    .from("credit_notes")
+    .insert({
+      garage_id: garageId,
+      invoice_id: input.invoiceId,
+      customer_id: input.customerId,
+      date: input.date || undefined,
+      reason: input.reason || null,
+      vat_rate: input.vatRate,
+      notes: input.notes || null,
+      status: "issued",
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  const { error: linesError } = await supabase.from("credit_note_line_items").insert(
+    input.lineItems
+      .filter((line) => line.description.trim())
+      .map((line) => ({
+        garage_id: garageId,
+        credit_note_id: creditNote.id,
+        description: line.description,
+        quantity: line.quantity,
+        unit_price: line.unitPrice,
+      }))
+  );
+
+  if (linesError) return { error: linesError.message };
+
+  revalidatePath(`/invoices/${input.invoiceId}`);
+  return { id: creditNote.id };
+}
+
+export async function voidCreditNote(id: string, invoiceId: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageInvoices");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("credit_notes")
+    .update({ status: "void" })
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/invoices/${invoiceId}`);
+  return {};
+}
+
 export interface PartInput {
   sku: string;
   name: string;
@@ -1932,6 +2029,36 @@ export async function submitFeedbackResponseByToken(
   });
   if (error) return { error: error.message };
   return {};
+}
+
+// ---- Vehicle service history ----
+
+export async function generateVehicleHistoryLink(
+  vehicleId: string
+): Promise<MutationResult & { token?: string }> {
+  try {
+    await requirePermission("manageVehicles");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data, error } = await supabase
+    .rpc("create_vehicle_history_link", { p_vehicle_id: vehicleId, p_garage_id: garageId })
+    .single();
+
+  if (error) return { error: error.message };
+  return { token: data.token };
+}
+
+export async function getVehicleHistoryByToken(token: string): Promise<VehicleHistory> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_vehicle_history_by_token", { p_token: token });
+  if (error || !data) return { valid: false };
+  return data as unknown as VehicleHistory;
 }
 
 export interface EmployeeInput {

@@ -34,6 +34,9 @@ import type {
   EmployeeLeave,
   LeaveType,
   LeaveStatus,
+  CreditNote,
+  CreditNoteLineItem,
+  CreditNoteStatus,
   FeedbackChannel,
   FeedbackRequest,
   FeedbackRequestStatus,
@@ -62,6 +65,9 @@ type JobCardRow = Tables<"job_cards"> & {
 };
 type InvoiceRow = Tables<"invoices"> & {
   invoice_line_items: Tables<"invoice_line_items">[];
+};
+type CreditNoteRow = Tables<"credit_notes"> & {
+  credit_note_line_items: Tables<"credit_note_line_items">[];
 };
 type EstimateRow = Tables<"estimates"> & {
   estimate_lines: Tables<"estimate_lines">[];
@@ -986,6 +992,59 @@ export async function getInvoice(id: string): Promise<Invoice | undefined> {
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapInvoice(data as InvoiceRow) : undefined;
+}
+
+// ---- Credit notes ----
+
+function mapCreditNoteLine(row: Tables<"credit_note_line_items">): CreditNoteLineItem {
+  return {
+    id: row.id,
+    description: row.description,
+    quantity: row.quantity,
+    unitPrice: row.unit_price,
+  };
+}
+
+function mapCreditNote(row: CreditNoteRow): CreditNote {
+  return {
+    id: row.id,
+    number: row.number,
+    invoiceId: row.invoice_id,
+    customerId: row.customer_id,
+    date: row.date,
+    status: row.status as CreditNoteStatus,
+    reason: row.reason,
+    vatRate: row.vat_rate,
+    notes: row.notes,
+    lineItems: (row.credit_note_line_items ?? []).map(mapCreditNoteLine),
+  };
+}
+
+const CREDIT_NOTE_SELECT = "*, credit_note_line_items(*)";
+
+export async function getCreditNotesForInvoice(invoiceId: string): Promise<CreditNote[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("credit_notes")
+    .select(CREDIT_NOTE_SELECT)
+    .eq("invoice_id", invoiceId)
+    .eq("garage_id", garageId)
+    .order("date", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => mapCreditNote(row as CreditNoteRow));
+}
+
+export async function getCreditNotes(): Promise<CreditNote[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("credit_notes")
+    .select(CREDIT_NOTE_SELECT)
+    .eq("garage_id", garageId)
+    .order("date", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => mapCreditNote(row as CreditNoteRow));
 }
 
 // ---- Estimates ----

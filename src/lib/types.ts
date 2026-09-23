@@ -305,6 +305,37 @@ export interface InvoiceLineItem {
   unitPrice: number;
 }
 
+export interface VehicleHistoryJobSummary {
+  id: string;
+  description: string | null;
+  customerComplaint: string | null;
+  completedAt: string | null;
+  mileageIn: number | null;
+  jobType: string | null;
+  labourLines: { description: string; hours: number }[];
+  partLines: { description: string; quantity: number }[];
+  vhcSummary: { green: number; amber: number; red: number } | null;
+}
+
+export interface VehicleHistoryMileageEntry {
+  mileage: number;
+  recordedAt: string;
+}
+
+export interface VehicleHistory {
+  valid: boolean;
+  garageName?: string;
+  vehicle?: {
+    registration: string;
+    make: string | null;
+    model: string | null;
+    year: number | null;
+    colour: string | null;
+  };
+  jobs?: VehicleHistoryJobSummary[];
+  mileageHistory?: VehicleHistoryMileageEntry[];
+}
+
 export interface Invoice {
   id: string;
   number: string;
@@ -317,6 +348,28 @@ export interface Invoice {
   lineItems: InvoiceLineItem[];
   vatRate: number;
   notes?: string | null;
+}
+
+export type CreditNoteStatus = "draft" | "issued" | "void";
+
+export interface CreditNoteLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CreditNote {
+  id: string;
+  number: string | null;
+  invoiceId: string;
+  customerId: string;
+  date: string;
+  status: CreditNoteStatus;
+  reason: string | null;
+  vatRate: number;
+  notes: string | null;
+  lineItems: CreditNoteLineItem[];
 }
 
 export type EstimateStatus = "draft" | "sent" | "accepted" | "declined" | "expired" | "booked";

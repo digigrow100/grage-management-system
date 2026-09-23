@@ -149,6 +149,121 @@ export type Database = {
           },
         ]
       }
+      credit_note_line_items: {
+        Row: {
+          created_at: string
+          credit_note_id: string
+          description: string
+          garage_id: string
+          id: string
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          credit_note_id: string
+          description: string
+          garage_id: string
+          id?: string
+          quantity?: number
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          credit_note_id?: string
+          description?: string
+          garage_id?: string
+          id?: string
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_note_line_items_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_note_line_items_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          date: string
+          garage_id: string
+          id: string
+          invoice_id: string
+          notes: string | null
+          number: string | null
+          reason: string | null
+          status: string
+          updated_at: string
+          vat_rate: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          date?: string
+          garage_id: string
+          id?: string
+          invoice_id: string
+          notes?: string | null
+          number?: string | null
+          reason?: string | null
+          status?: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          date?: string
+          garage_id?: string
+          id?: string
+          invoice_id?: string
+          notes?: string | null
+          number?: string | null
+          reason?: string | null
+          status?: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_notes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address_line: string
@@ -1780,6 +1895,51 @@ export type Database = {
           },
         ]
       }
+      vehicle_history_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          garage_id: string
+          id: string
+          revoked_at: string | null
+          token: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          garage_id: string
+          id?: string
+          revoked_at?: string | null
+          token: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          garage_id?: string
+          id?: string
+          revoked_at?: string | null
+          token?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_history_links_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_history_links_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_mileage_history: {
         Row: {
           garage_id: string
@@ -2222,6 +2382,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_vehicle_history_link: {
+        Args: { p_garage_id: string; p_vehicle_id: string }
+        Returns: {
+          id: string
+          token: string
+        }[]
+      }
+      get_vehicle_history_by_token: { Args: { p_token: string }; Returns: Json }
       create_feedback_request: {
         Args: { p_customer_id: string; p_garage_id: string; p_job_id: string }
         Returns: {

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import {
+  getCreditNotesForInvoice,
   getCustomer,
   getCustomers,
   getGarageSettings,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/supabase/queries";
 import { invoiceTotals } from "@/lib/totals";
 import { InvoiceView } from "@/components/invoices/InvoiceView";
+import { CreditNotesList } from "@/components/invoices/CreditNotesList";
 
 export default async function InvoiceDetailPage({
   params,
@@ -20,12 +22,13 @@ export default async function InvoiceDetailPage({
   const invoice = await getInvoice(id);
   if (!invoice) notFound();
 
-  const [customer, vehicle, customers, vehicles, garage] = await Promise.all([
+  const [customer, vehicle, customers, vehicles, garage, creditNotes] = await Promise.all([
     getCustomer(invoice.customerId),
     invoice.vehicleId ? getVehicle(invoice.vehicleId) : Promise.resolve(undefined),
     getCustomers(),
     getVehicles(),
     getGarageSettings(),
+    getCreditNotesForInvoice(invoice.id),
   ]);
   const totals = invoiceTotals(invoice);
 
@@ -42,6 +45,9 @@ export default async function InvoiceDetailPage({
           vehicles={vehicles}
           garage={garage}
         />
+        <div className="mx-auto max-w-3xl">
+          <CreditNotesList creditNotes={creditNotes} invoiceId={invoice.id} />
+        </div>
       </main>
     </>
   );

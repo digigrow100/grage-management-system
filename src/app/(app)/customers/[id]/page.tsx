@@ -18,6 +18,7 @@ import { formatCurrency, formatDate, daysUntil } from "@/lib/format";
 import { ArrowLeft } from "lucide-react";
 import { EditCustomerButton } from "@/components/forms/EditCustomerModal";
 import { AddVehicleButton, EditVehicleButton } from "@/components/forms/VehicleFormModal";
+import { ShareServiceHistoryButton } from "@/components/vehicles/ShareServiceHistoryButton";
 import { JOB_STATUS_LABELS, JOB_STATUS_TONE } from "@/lib/job-status";
 import { customerDisplayName } from "@/lib/types";
 
@@ -173,7 +174,10 @@ export default async function CustomerDetailPage({
                           {v.taxStatus ?? "—"}
                         </td>
                         <td className="px-5 py-3 text-right">
-                          <EditVehicleButton vehicle={v} />
+                          <div className="flex items-center justify-end gap-1">
+                            <ShareServiceHistoryButton vehicleId={v.id} />
+                            <EditVehicleButton vehicle={v} />
+                          </div>
                         </td>
                       </tr>
                     );
