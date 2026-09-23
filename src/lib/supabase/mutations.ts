@@ -2026,6 +2026,139 @@ export async function deleteEmployee(id: string): Promise<MutationResult> {
   return {};
 }
 
+// ---- Employee leave ----
+
+export interface LeaveRequestInput {
+  employeeId: string;
+  leaveType: "annual" | "sick" | "unpaid" | "other";
+  startsOn: string;
+  endsOn: string;
+  notes?: string;
+}
+
+export async function requestLeave(input: LeaveRequestInput): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let canRequest = false;
+  try {
+    await requirePermission("manageEmployees");
+    canRequest = true;
+  } catch (err) {
+    if (!(err instanceof PermissionError)) throw err;
+  }
+
+  if (!canRequest && user) {
+    const { data: employee } = await supabase
+      .from("employees")
+      .select("user_id")
+      .eq("id", input.employeeId)
+      .eq("garage_id", garageId)
+      .maybeSingle();
+    canRequest = employee?.user_id === user.id;
+  }
+
+  if (!canRequest) {
+    return { error: "You can only request leave for yourself." };
+  }
+
+  if (input.endsOn < input.startsOn) {
+    return { error: "End date must be on or after the start date." };
+  }
+
+  const { error } = await supabase.from("employee_leave").insert({
+    garage_id: garageId,
+    employee_id: input.employeeId,
+    leave_type: input.leaveType,
+    starts_on: input.startsOn,
+    ends_on: input.endsOn,
+    notes: input.notes || null,
+    requested_by: user?.id ?? null,
+    status: "requested",
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/leave");
+  return {};
+}
+
+export async function decideLeave(
+  id: string,
+  decision: "approved" | "rejected"
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageLeave");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("employee_leave")
+    .update({
+      status: decision,
+      approved_by: user?.id ?? null,
+      decided_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .eq("status", "requested");
+
+  if (error) return { error: error.message };
+  revalidatePath("/leave");
+  return {};
+}
+
+export async function cancelLeave(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let canCancel = false;
+  try {
+    await requirePermission("manageLeave");
+    canCancel = true;
+  } catch (err) {
+    if (!(err instanceof PermissionError)) throw err;
+  }
+
+  if (!canCancel && user) {
+    const { data: leave } = await supabase
+      .from("employee_leave")
+      .select("requested_by")
+      .eq("id", id)
+      .eq("garage_id", garageId)
+      .maybeSingle();
+    canCancel = leave?.requested_by === user.id;
+  }
+
+  if (!canCancel) {
+    return { error: "You can only cancel your own leave requests." };
+  }
+
+  const { error } = await supabase
+    .from("employee_leave")
+    .update({ status: "cancelled" })
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/leave");
+  return {};
+}
+
 export interface ReminderInput {
   customerId?: string;
   vehicleId?: string;

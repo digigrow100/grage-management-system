@@ -31,6 +31,9 @@ import type {
   ServiceDetails,
   StockMovement,
   StockMovementType,
+  EmployeeLeave,
+  LeaveType,
+  LeaveStatus,
   FeedbackChannel,
   FeedbackRequest,
   FeedbackRequestStatus,
@@ -1037,6 +1040,36 @@ export async function getEmployees(): Promise<Employee[]> {
     .order("full_name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapEmployee);
+}
+
+// ---- Employee leave ----
+
+function mapEmployeeLeave(row: Tables<"employee_leave">): EmployeeLeave {
+  return {
+    id: row.id,
+    employeeId: row.employee_id,
+    leaveType: row.leave_type as LeaveType,
+    startsOn: row.starts_on,
+    endsOn: row.ends_on,
+    status: row.status as LeaveStatus,
+    notes: row.notes,
+    requestedBy: row.requested_by,
+    approvedBy: row.approved_by,
+    decidedAt: row.decided_at,
+    createdAt: row.created_at,
+  };
+}
+
+export async function getEmployeeLeave(): Promise<EmployeeLeave[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("employee_leave")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("starts_on", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapEmployeeLeave);
 }
 
 // ---- Reminders ----
