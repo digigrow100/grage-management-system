@@ -482,6 +482,23 @@ export interface EmployeeWorkingHours {
   endsAt: string | null;
 }
 
+export type LeaveType = "annual" | "sick" | "unpaid" | "other";
+export type LeaveStatus = "requested" | "approved" | "rejected" | "cancelled";
+
+export interface EmployeeLeave {
+  id: string;
+  employeeId: string;
+  leaveType: LeaveType;
+  startsOn: string;
+  endsOn: string;
+  status: LeaveStatus;
+  notes: string | null;
+  requestedBy: string | null;
+  approvedBy: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
 export type ReminderType = "mot" | "service" | "booking" | "general";
 export type ReminderChannel = "in_app" | "email" | "sms";
 export type ReminderStatus = "scheduled" | "sent" | "completed" | "cancelled" | "failed";

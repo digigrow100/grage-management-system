@@ -247,6 +247,69 @@ export type Database = {
           },
         ]
       }
+      employee_leave: {
+        Row: {
+          approved_by: string | null
+          created_at: string
+          decided_at: string | null
+          employee_id: string
+          ends_on: string
+          garage_id: string
+          id: string
+          leave_type: string
+          notes: string | null
+          requested_by: string | null
+          starts_on: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_by?: string | null
+          created_at?: string
+          decided_at?: string | null
+          employee_id: string
+          ends_on: string
+          garage_id: string
+          id?: string
+          leave_type?: string
+          notes?: string | null
+          requested_by?: string | null
+          starts_on: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_by?: string | null
+          created_at?: string
+          decided_at?: string | null
+          employee_id?: string
+          ends_on?: string
+          garage_id?: string
+          id?: string
+          leave_type?: string
+          notes?: string | null
+          requested_by?: string | null
+          starts_on?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_leave_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_leave_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_working_hours: {
         Row: {
           employee_id: string

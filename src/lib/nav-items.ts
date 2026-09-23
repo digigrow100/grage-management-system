@@ -16,6 +16,7 @@ import {
   PackageSearch,
   Warehouse,
   MessageSquareHeart,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,6 +45,7 @@ export const navItems: NavItem[] = [
   { href: "/reports", label: "Business Analytics", icon: BarChart3, section: "Business" },
   { href: "/accounting", label: "Accounting", icon: Calculator, section: "Business" },
   { href: "/employees", label: "Employees", icon: IdCard, section: "Business" },
+  { href: "/leave", label: "Leave", icon: CalendarClock, section: "Business" },
   { href: "/settings", label: "Settings", icon: Settings, section: "System" },
   { href: "/help", label: "Help", icon: HelpCircle, section: "System" },
 ];

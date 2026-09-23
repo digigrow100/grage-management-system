@@ -16,6 +16,7 @@ import { getCurrentGarageId, getUserGarages } from "@/lib/supabase/garage";
 export const PERMISSIONS = {
   manageGarageSettings: ["owner", "manager"],
   manageEmployees: ["owner", "manager"],
+  manageLeave: ["owner", "manager"],
   viewEmployeePayRates: ["owner", "manager"],
   viewBusinessAnalytics: ["owner", "manager"],
   deleteTenantData: ["owner"],
