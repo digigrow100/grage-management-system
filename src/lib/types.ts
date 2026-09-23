@@ -305,6 +305,37 @@ export interface InvoiceLineItem {
   unitPrice: number;
 }
 
+export interface VehicleHistoryJobSummary {
+  id: string;
+  description: string | null;
+  customerComplaint: string | null;
+  completedAt: string | null;
+  mileageIn: number | null;
+  jobType: string | null;
+  labourLines: { description: string; hours: number }[];
+  partLines: { description: string; quantity: number }[];
+  vhcSummary: { green: number; amber: number; red: number } | null;
+}
+
+export interface VehicleHistoryMileageEntry {
+  mileage: number;
+  recordedAt: string;
+}
+
+export interface VehicleHistory {
+  valid: boolean;
+  garageName?: string;
+  vehicle?: {
+    registration: string;
+    make: string | null;
+    model: string | null;
+    year: number | null;
+    colour: string | null;
+  };
+  jobs?: VehicleHistoryJobSummary[];
+  mileageHistory?: VehicleHistoryMileageEntry[];
+}
+
 export interface Invoice {
   id: string;
   number: string;

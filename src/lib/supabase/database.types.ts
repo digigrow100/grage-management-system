@@ -1895,6 +1895,51 @@ export type Database = {
           },
         ]
       }
+      vehicle_history_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          garage_id: string
+          id: string
+          revoked_at: string | null
+          token: string
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          garage_id: string
+          id?: string
+          revoked_at?: string | null
+          token: string
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          garage_id?: string
+          id?: string
+          revoked_at?: string | null
+          token?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_history_links_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_history_links_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_mileage_history: {
         Row: {
           garage_id: string
@@ -2337,6 +2382,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_vehicle_history_link: {
+        Args: { p_garage_id: string; p_vehicle_id: string }
+        Returns: {
+          id: string
+          token: string
+        }[]
+      }
+      get_vehicle_history_by_token: { Args: { p_token: string }; Returns: Json }
       create_feedback_request: {
         Args: { p_customer_id: string; p_garage_id: string; p_job_id: string }
         Returns: {

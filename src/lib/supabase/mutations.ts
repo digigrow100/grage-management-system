@@ -14,6 +14,7 @@ import type {
   ProductType,
   PurchaseOrderStatus,
   ServiceDetails,
+  VehicleHistory,
 } from "@/lib/types";
 import { JOB_TYPE_LABELS } from "@/lib/job-types";
 import { JOB_STATUS_LABELS, JOB_STATUS_TRANSITIONS } from "@/lib/job-status";
@@ -2028,6 +2029,36 @@ export async function submitFeedbackResponseByToken(
   });
   if (error) return { error: error.message };
   return {};
+}
+
+// ---- Vehicle service history ----
+
+export async function generateVehicleHistoryLink(
+  vehicleId: string
+): Promise<MutationResult & { token?: string }> {
+  try {
+    await requirePermission("manageVehicles");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data, error } = await supabase
+    .rpc("create_vehicle_history_link", { p_vehicle_id: vehicleId, p_garage_id: garageId })
+    .single();
+
+  if (error) return { error: error.message };
+  return { token: data.token };
+}
+
+export async function getVehicleHistoryByToken(token: string): Promise<VehicleHistory> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_vehicle_history_by_token", { p_token: token });
+  if (error || !data) return { valid: false };
+  return data as unknown as VehicleHistory;
 }
 
 export interface EmployeeInput {
