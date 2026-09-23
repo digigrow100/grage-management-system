@@ -4,13 +4,14 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
 import {
   getBookings,
+  getCreditNotes,
   getCustomers,
   getEmployees,
   getInvoices,
   getJobCards,
   getParts,
 } from "@/lib/supabase/queries";
-import { invoiceTotals, jobLineTotal } from "@/lib/totals";
+import { creditedTotalsByInvoice, netInvoiceTotals, jobLineTotal } from "@/lib/totals";
 import { formatCurrency } from "@/lib/format";
 import { JOB_STATUSES, JOB_STATUS_LABELS } from "@/lib/job-status";
 import { JOB_TYPE_LABELS } from "@/lib/job-types";
@@ -97,29 +98,33 @@ export default async function ReportsPage({
     : "30d";
   const from = rangeStart(range);
 
-  const [invoices, jobCards, parts, customers, bookings, employees] = await Promise.all([
+  const [invoices, jobCards, parts, customers, bookings, employees, creditNotes] = await Promise.all([
     getInvoices(),
     getJobCards(),
     getParts(),
     getCustomers(),
     getBookings(),
     getEmployees(),
+    getCreditNotes(),
   ]);
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const bookingJobTypeById = new Map(bookings.map((b) => [b.id, b.jobType]));
   const employeeById = new Map(employees.map((e) => [e.id, e]));
+  // Revenue reflects money actually kept — an issued credit note refunds
+  // part or all of the invoice it was raised on, so it's netted out below.
+  const creditedByInvoice = creditedTotalsByInvoice(creditNotes);
 
   const invoicesInRange = from ? invoices.filter((inv) => inv.date >= from) : invoices;
   const jobsInRange = from ? jobCards.filter((j) => j.createdAt >= from) : jobCards;
 
   const totalRevenue = invoicesInRange
     .filter((i) => i.status === "paid")
-    .reduce((sum, inv) => sum + invoiceTotals(inv).total, 0);
+    .reduce((sum, inv) => sum + netInvoiceTotals(inv, creditedByInvoice).total, 0);
 
   const outstanding = invoicesInRange
     .filter((i) => i.status === "sent" || i.status === "overdue")
-    .reduce((sum, inv) => sum + invoiceTotals(inv).total, 0);
+    .reduce((sum, inv) => sum + netInvoiceTotals(inv, creditedByInvoice).total, 0);
 
   // Cancelled jobs never billed anything (their lines were entered before
   // cancellation), so they're excluded from every revenue/usage aggregate
@@ -150,7 +155,7 @@ export default async function ReportsPage({
   const monthlyRevenue = months.map(({ key, label }) => {
     const value = invoices
       .filter((inv) => inv.status === "paid" && inv.date.startsWith(key))
-      .reduce((sum, inv) => sum + invoiceTotals(inv).total, 0);
+      .reduce((sum, inv) => sum + netInvoiceTotals(inv, creditedByInvoice).total, 0);
     return { month: label, value };
   });
   const maxRevenue = Math.max(1, ...monthlyRevenue.map((m) => m.value));
@@ -169,7 +174,7 @@ export default async function ReportsPage({
   const revenueForMonth = (key: string) =>
     invoices
       .filter((inv) => inv.status === "paid" && inv.date.startsWith(key))
-      .reduce((sum, inv) => sum + invoiceTotals(inv).total, 0);
+      .reduce((sum, inv) => sum + netInvoiceTotals(inv, creditedByInvoice).total, 0);
   const thisMonthRevenue = revenueForMonth(thisMonthKey);
   const lastMonthRevenue = revenueForMonth(lastMonthKey);
   const momHint =
@@ -186,7 +191,7 @@ export default async function ReportsPage({
   const revenueByCustomer = new Map<string, number>();
   for (const inv of invoicesInRange) {
     if (inv.status === "estimate" || inv.status === "draft") continue;
-    const total = invoiceTotals(inv).total;
+    const total = netInvoiceTotals(inv, creditedByInvoice).total;
     revenueByCustomer.set(inv.customerId, (revenueByCustomer.get(inv.customerId) ?? 0) + total);
   }
   const topCustomers = [...revenueByCustomer.entries()]

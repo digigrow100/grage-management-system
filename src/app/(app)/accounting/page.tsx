@@ -1,26 +1,30 @@
 import { TopBar } from "@/components/layout/TopBar";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
-import { getInvoices, getJobCards, getParts } from "@/lib/supabase/queries";
-import { invoiceTotals } from "@/lib/totals";
+import { getCreditNotes, getInvoices, getJobCards, getParts } from "@/lib/supabase/queries";
+import { creditedTotalsByInvoice, netInvoiceTotals } from "@/lib/totals";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { PoundSterling, Receipt, TrendingDown, TrendingUp } from "lucide-react";
 
 export default async function AccountingPage() {
-  const [invoices, jobCards, parts] = await Promise.all([
+  const [invoices, jobCards, parts, creditNotes] = await Promise.all([
     getInvoices(),
     getJobCards(),
     getParts(),
+    getCreditNotes(),
   ]);
 
   const partById = new Map(parts.map((p) => [p.id, p]));
+  // Revenue/VAT reflect money actually kept — an issued credit note is a
+  // refund against the invoice it was raised on, so it comes back out.
+  const creditedByInvoice = creditedTotalsByInvoice(creditNotes);
 
   const paidInvoices = invoices.filter((i) => i.status === "paid");
-  const revenue = paidInvoices.reduce((sum, inv) => sum + invoiceTotals(inv).total, 0);
-  const vatCollected = paidInvoices.reduce((sum, inv) => sum + invoiceTotals(inv).vat, 0);
+  const revenue = paidInvoices.reduce((sum, inv) => sum + netInvoiceTotals(inv, creditedByInvoice).total, 0);
+  const vatCollected = paidInvoices.reduce((sum, inv) => sum + netInvoiceTotals(inv, creditedByInvoice).vat, 0);
   const outstanding = invoices
     .filter((i) => i.status === "sent" || i.status === "overdue")
-    .reduce((sum, inv) => sum + invoiceTotals(inv).total, 0);
+    .reduce((sum, inv) => sum + netInvoiceTotals(inv, creditedByInvoice).total, 0);
 
   // Cost of parts used, restricted to jobs whose linked invoice is paid —
   // matching costs to the same revenue being recognized above. Parts on
@@ -111,7 +115,7 @@ export default async function AccountingPage() {
                 </thead>
                 <tbody>
                   {recentPaid.map((inv) => {
-                    const { vat, total } = invoiceTotals(inv);
+                    const { vat, total } = netInvoiceTotals(inv, creditedByInvoice);
                     return (
                       <tr key={inv.id} className="border-b border-slate-50 last:border-0">
                         <td className="px-5 py-3 font-medium text-slate-900">{inv.number}</td>

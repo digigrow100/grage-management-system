@@ -4,13 +4,14 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import {
   getBookings,
+  getCreditNotes,
   getCustomers,
   getInvoices,
   getJobCards,
   getParts,
   getVehicles,
 } from "@/lib/supabase/queries";
-import { invoiceTotals } from "@/lib/totals";
+import { creditedTotalsByInvoice, netInvoiceTotals } from "@/lib/totals";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/format";
 import { JOB_TYPE_LABELS, JOB_TYPE_TONE } from "@/lib/job-types";
 import { JOB_STATUS_LABELS, JOB_STATUS_TONE } from "@/lib/job-status";
@@ -22,7 +23,7 @@ function today(): string {
 }
 
 export default async function DashboardPage() {
-  const [customers, vehicles, bookings, jobCards, invoices, parts] =
+  const [customers, vehicles, bookings, jobCards, invoices, parts, creditNotes] =
     await Promise.all([
       getCustomers(),
       getVehicles(),
@@ -30,7 +31,9 @@ export default async function DashboardPage() {
       getJobCards(),
       getInvoices(),
       getParts(),
+      getCreditNotes(),
     ]);
+  const creditedByInvoice = creditedTotalsByInvoice(creditNotes);
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const vehicleById = new Map(vehicles.map((v) => [v.id, v]));
@@ -52,7 +55,7 @@ export default async function DashboardPage() {
     (i) => i.status === "sent" || i.status === "overdue"
   );
   const outstandingTotal = outstandingInvoices.reduce(
-    (sum, inv) => sum + invoiceTotals(inv).total,
+    (sum, inv) => sum + netInvoiceTotals(inv, creditedByInvoice).total,
     0
   );
 
