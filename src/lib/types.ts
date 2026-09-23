@@ -173,6 +173,34 @@ export interface Booking {
   source?: string;
 }
 
+export type BookingRequestStatus = "pending" | "accepted" | "declined" | "converted";
+
+export interface BookingRequest {
+  id: string;
+  garageId: string;
+  customerName: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  vehicleRegistration: string | null;
+  vehicleMake: string | null;
+  vehicleModel: string | null;
+  jobType: JobType;
+  preferredDate: string | null;
+  preferredTime: string | null;
+  notes: string | null;
+  status: BookingRequestStatus;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  declineReason: string | null;
+  bookingId: string | null;
+  createdAt: string;
+}
+
+export interface BookingWidgetInfo {
+  garageName: string;
+  enabled: boolean;
+}
+
 export interface JobLabourLine {
   id: string;
   description: string;
@@ -607,6 +635,8 @@ export interface GarageSettings {
   calendarSlotMinutes?: number;
   allowOverlappingJobs?: boolean;
   smartGapMinutes?: number;
+  bookingWidgetToken: string;
+  bookingWidgetEnabled: boolean;
 }
 
 export interface GarageOpeningHours {

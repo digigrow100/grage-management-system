@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      booking_requests: {
+        Row: {
+          booking_id: string | null
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decline_reason: string | null
+          garage_id: string
+          id: string
+          job_type: string
+          notes: string | null
+          preferred_date: string | null
+          preferred_time: string | null
+          status: string
+          vehicle_make: string | null
+          vehicle_model: string | null
+          vehicle_registration: string | null
+        }
+        Insert: {
+          booking_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          garage_id: string
+          id?: string
+          job_type: string
+          notes?: string | null
+          preferred_date?: string | null
+          preferred_time?: string | null
+          status?: string
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+          vehicle_registration?: string | null
+        }
+        Update: {
+          booking_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          garage_id?: string
+          id?: string
+          job_type?: string
+          notes?: string | null
+          preferred_date?: string | null
+          preferred_time?: string | null
+          status?: string
+          vehicle_make?: string | null
+          vehicle_model?: string | null
+          vehicle_registration?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_requests_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_requests_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           address_line: string | null
@@ -921,6 +999,8 @@ export type Database = {
         Row: {
           address_line: string
           allow_overlapping_jobs: boolean
+          booking_widget_enabled: boolean
+          booking_widget_token: string
           calendar_end_hour: number
           calendar_slot_minutes: number
           calendar_start_hour: number
@@ -945,6 +1025,8 @@ export type Database = {
         Insert: {
           address_line?: string
           allow_overlapping_jobs?: boolean
+          booking_widget_enabled?: boolean
+          booking_widget_token?: string
           calendar_end_hour?: number
           calendar_slot_minutes?: number
           calendar_start_hour?: number
@@ -969,6 +1051,8 @@ export type Database = {
         Update: {
           address_line?: string
           allow_overlapping_jobs?: boolean
+          booking_widget_enabled?: boolean
+          booking_widget_token?: string
           calendar_end_hour?: number
           calendar_slot_minutes?: number
           calendar_start_hour?: number
@@ -2428,6 +2512,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_booking_request: {
+        Args: {
+          p_customer_email: string
+          p_customer_name: string
+          p_customer_phone: string
+          p_job_type: string
+          p_notes: string
+          p_preferred_date: string
+          p_preferred_time: string
+          p_token: string
+          p_vehicle_make: string
+          p_vehicle_model: string
+          p_vehicle_registration: string
+        }
+        Returns: string
+      }
+      get_booking_widget_info: {
+        Args: { p_token: string }
+        Returns: {
+          enabled: boolean
+          garage_name: string
+        }[]
+      }
       create_vehicle_history_link: {
         Args: { p_garage_id: string; p_vehicle_id: string }
         Returns: {

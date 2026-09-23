@@ -3,6 +3,8 @@ import { getCurrentGarageId } from "./garage";
 import type { Tables } from "./database.types";
 import type {
   Booking,
+  BookingRequest,
+  BookingRequestStatus,
   Customer,
   Employee,
   EmployeeRole,
@@ -56,6 +58,7 @@ type CustomerRow = Tables<"customers">;
 type VehicleRow = Tables<"vehicles">;
 type PartRow = Tables<"parts">;
 type BookingRow = Tables<"bookings">;
+type BookingRequestRow = Tables<"booking_requests">;
 type EmployeeRow = Tables<"employees">;
 type ReminderRow = Tables<"reminders">;
 type GarageSettingsRow = Tables<"garage_settings">;
@@ -263,6 +266,29 @@ function mapBooking(row: BookingRow): Booking {
   };
 }
 
+function mapBookingRequest(row: BookingRequestRow): BookingRequest {
+  return {
+    id: row.id,
+    garageId: row.garage_id,
+    customerName: row.customer_name,
+    customerEmail: row.customer_email,
+    customerPhone: row.customer_phone,
+    vehicleRegistration: row.vehicle_registration,
+    vehicleMake: row.vehicle_make,
+    vehicleModel: row.vehicle_model,
+    jobType: row.job_type as BookingRequest["jobType"],
+    preferredDate: row.preferred_date,
+    preferredTime: row.preferred_time,
+    notes: row.notes,
+    status: row.status as BookingRequestStatus,
+    decidedAt: row.decided_at,
+    decidedBy: row.decided_by,
+    declineReason: row.decline_reason,
+    bookingId: row.booking_id,
+    createdAt: row.created_at,
+  };
+}
+
 function mapEmployee(row: EmployeeRow): Employee {
   return {
     id: row.id,
@@ -329,6 +355,8 @@ function mapGarageSettings(row: GarageSettingsRow): GarageSettings {
     calendarSlotMinutes: row.calendar_slot_minutes,
     allowOverlappingJobs: row.allow_overlapping_jobs,
     smartGapMinutes: row.smart_gap_minutes,
+    bookingWidgetToken: row.booking_widget_token,
+    bookingWidgetEnabled: row.booking_widget_enabled,
   };
 }
 
@@ -863,6 +891,18 @@ export async function getBookingsForCustomer(
   return (data ?? []).map(mapBooking);
 }
 
+export async function getBookingRequests(): Promise<BookingRequest[]> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("booking_requests")
+    .select("*")
+    .eq("garage_id", garageId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(mapBookingRequest);
+}
+
 // ---- Job cards ----
 
 export async function getJobCards(): Promise<JobCard[]> {
@@ -1193,6 +1233,8 @@ export async function getGarageSettings(): Promise<GarageSettings> {
     vatNumber: "",
     defaultVatRate: 20,
     invoicePrefix: "INV",
+    bookingWidgetToken: "",
+    bookingWidgetEnabled: false,
   };
 }
 
