@@ -26,9 +26,7 @@ export default async function AccountingPage() {
   // matching costs to the same revenue being recognized above. Parts on
   // jobs that aren't invoiced (or invoiced but unpaid) don't reduce margin
   // yet, since that revenue isn't counted either.
-  const paidJobIds = new Set(
-    paidInvoices.map((inv) => inv.jobId).filter((id): id is string => Boolean(id))
-  );
+  const paidJobIds = new Set(paidInvoices.flatMap((inv) => inv.jobIds));
   const costOfPartsUsed = jobCards
     .filter((job) => paidJobIds.has(job.id))
     .reduce((sum, job) => {
