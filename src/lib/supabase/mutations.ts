@@ -1942,6 +1942,7 @@ export async function startVhcCheck(
       .from("vhc_template_items")
       .select("*")
       .eq("template_id", input.templateId)
+      .eq("garage_id", garageId)
       .order("sort_order", { ascending: true });
 
     if (templateItemsError) return { error: templateItemsError.message };
@@ -2118,17 +2119,21 @@ export async function saveVhcTemplate(
 
   let id = templateId;
   if (id) {
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("vhc_templates")
       .update({ name: input.name, is_default: input.isDefault ?? false })
       .eq("id", id)
-      .eq("garage_id", garageId);
+      .eq("garage_id", garageId)
+      .select("id")
+      .maybeSingle();
     if (error) return { error: error.message };
+    if (!updated) return { error: "Template not found." };
 
     const { error: deleteError } = await supabase
       .from("vhc_template_items")
       .delete()
-      .eq("template_id", id);
+      .eq("template_id", id)
+      .eq("garage_id", garageId);
     if (deleteError) return { error: deleteError.message };
   } else {
     const { data: template, error } = await supabase
