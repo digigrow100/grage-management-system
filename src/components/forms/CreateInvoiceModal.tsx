@@ -5,19 +5,23 @@ import { useRouter } from "next/navigation";
 import {
   Calendar,
   Car,
+  CheckSquare,
   ClipboardList,
   FileText,
   Percent,
   Plus,
   Receipt,
+  Square,
   Trash2,
   User,
+  Wrench,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FieldGroup, Select, TextArea, TextInput } from "@/components/ui/Field";
 import { addInvoice } from "@/lib/supabase/mutations";
-import { formatCurrency } from "@/lib/format";
-import type { Customer, Vehicle } from "@/lib/types";
+import { formatCurrency, formatDate } from "@/lib/format";
+import { cn } from "@/lib/cn";
+import type { Customer, JobCard, Vehicle } from "@/lib/types";
 
 const DEFAULT_VAT_RATE = 20;
 
@@ -26,22 +30,27 @@ interface DraftLineItem {
   description: string;
   quantity: number;
   unitPrice: number;
+  jobId?: string;
 }
 
 let lineItemSeq = 0;
-function newLineItem(): DraftLineItem {
+function newLineItem(jobId?: string, description = "", quantity = 1, unitPrice = 0): DraftLineItem {
   lineItemSeq += 1;
-  return { id: `draft_${lineItemSeq}`, description: "", quantity: 1, unitPrice: 0 };
+  return { id: `draft_${lineItemSeq}`, description, quantity, unitPrice, jobId };
 }
+
+const INVOICEABLE_STATUSES: JobCard["status"][] = ["completed", "vehicle_released"];
 
 export function CreateInvoiceButton({
   customers,
   vehicles,
+  jobs = [],
   mode = "invoice",
   defaultVatRate = DEFAULT_VAT_RATE,
 }: {
   customers: Customer[];
   vehicles: Vehicle[];
+  jobs?: JobCard[];
   mode?: "invoice" | "estimate";
   defaultVatRate?: number;
 }) {
@@ -51,12 +60,26 @@ export function CreateInvoiceButton({
   const [customerId, setCustomerId] = useState("");
   const [vatRate, setVatRate] = useState(defaultVatRate);
   const [lineItems, setLineItems] = useState<DraftLineItem[]>([newLineItem()]);
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const customerVehicles = useMemo(
     () => (customerId ? vehicles.filter((v) => v.customerId === customerId) : []),
     [customerId, vehicles]
+  );
+
+  const invoiceableJobs = useMemo(
+    () =>
+      customerId
+        ? jobs.filter(
+            (j) =>
+              j.customerId === customerId &&
+              INVOICEABLE_STATUSES.includes(j.status) &&
+              !j.invoiceId
+          )
+        : [],
+    [customerId, jobs]
   );
 
   const subtotal = lineItems.reduce((sum, li) => sum + li.quantity * li.unitPrice, 0);
@@ -75,10 +98,35 @@ export function CreateInvoiceButton({
     setLineItems((items) => (items.length > 1 ? items.filter((li) => li.id !== id) : items));
   }
 
+  function toggleJob(job: JobCard) {
+    setSelectedJobIds((ids) => {
+      const next = new Set(ids);
+      if (next.has(job.id)) {
+        next.delete(job.id);
+        setLineItems((items) => {
+          const remaining = items.filter((li) => li.jobId !== job.id);
+          return remaining.length > 0 ? remaining : [newLineItem()];
+        });
+      } else {
+        next.add(job.id);
+        const jobLines: DraftLineItem[] = [
+          ...job.labourLines.map((l) => newLineItem(job.id, l.description, l.hours, l.rate)),
+          ...job.partLines.map((p) => newLineItem(job.id, p.description, p.quantity, p.unitPrice)),
+        ];
+        setLineItems((items) => {
+          const withoutBlank = items.filter((li) => li.description.trim() || li.jobId);
+          return [...withoutBlank, ...(jobLines.length > 0 ? jobLines : [newLineItem(job.id)])];
+        });
+      }
+      return next;
+    });
+  }
+
   function reset() {
     setCustomerId("");
     setVatRate(defaultVatRate);
     setLineItems([newLineItem()]);
+    setSelectedJobIds(new Set());
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -100,6 +148,7 @@ export function CreateInvoiceButton({
         quantity,
         unitPrice,
       })),
+      jobIds: isEstimate ? undefined : [...selectedJobIds],
     });
 
     setSubmitting(false);
@@ -135,7 +184,7 @@ export function CreateInvoiceButton({
         subtitle={
           isEstimate
             ? "Quote a customer before the work is confirmed"
-            : "Raise a new invoice for a customer"
+            : "Raise a new invoice for a customer, optionally batching completed jobs"
         }
         icon={isEstimate ? ClipboardList : Receipt}
         maxWidth="max-w-2xl"
@@ -149,7 +198,11 @@ export function CreateInvoiceButton({
                 icon={User}
                 required
                 value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
+                onChange={(e) => {
+                  setCustomerId(e.target.value);
+                  setSelectedJobIds(new Set());
+                  setLineItems([newLineItem()]);
+                }}
               >
                 <option value="" disabled>
                   Select a customer
@@ -193,6 +246,43 @@ export function CreateInvoiceButton({
             </FieldGroup>
           </div>
 
+          {!isEstimate && customerId && invoiceableJobs.length > 0 ? (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Completed jobs to invoice
+              </label>
+              <div className="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/60 p-2.5">
+                {invoiceableJobs.map((job) => {
+                  const selected = selectedJobIds.has(job.id);
+                  return (
+                    <button
+                      key={job.id}
+                      type="button"
+                      onClick={() => toggleJob(job)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                        selected ? "bg-accent-50 text-accent-900" : "hover:bg-white"
+                      )}
+                    >
+                      {selected ? (
+                        <CheckSquare size={16} className="shrink-0 text-accent-600" />
+                      ) : (
+                        <Square size={16} className="shrink-0 text-slate-400" />
+                      )}
+                      <Wrench size={14} className="shrink-0 text-slate-400" />
+                      <span className="flex-1 truncate">
+                        {job.jobNumber ?? job.description ?? "Job"}
+                      </span>
+                      <span className="shrink-0 text-xs text-slate-400">
+                        {job.completedAt ? formatDate(job.completedAt) : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           <div>
             <div className="mb-2.5 flex items-center justify-between">
               <label className="text-sm font-medium text-slate-700">Line Items</label>
@@ -223,8 +313,8 @@ export function CreateInvoiceButton({
                     <TextInput
                       aria-label="Quantity"
                       type="number"
-                      min="1"
-                      step="1"
+                      min="0.01"
+                      step="0.01"
                       value={li.quantity}
                       onChange={(e) =>
                         updateLineItem(li.id, { quantity: Number(e.target.value) || 1 })

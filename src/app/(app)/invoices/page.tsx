@@ -8,6 +8,7 @@ import {
   getCustomers,
   getGarageSettings,
   getInvoices,
+  getJobCards,
   getVehicles,
 } from "@/lib/supabase/queries";
 import { deleteInvoice } from "@/lib/supabase/mutations";
@@ -24,12 +25,13 @@ const statusTone: Record<string, "neutral" | "blue" | "green" | "red" | "purple"
 };
 
 export default async function InvoicesPage() {
-  const [invoices, customers, activeCustomers, vehicles, garage] = await Promise.all([
+  const [invoices, customers, activeCustomers, vehicles, garage, jobs] = await Promise.all([
     getInvoices(),
     getCustomers(),
     getActiveCustomers(),
     getVehicles(),
     getGarageSettings(),
+    getJobCards(),
   ]);
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
@@ -52,6 +54,7 @@ export default async function InvoicesPage() {
           <CreateInvoiceButton
             customers={activeCustomers}
             vehicles={vehicles}
+            jobs={jobs}
             defaultVatRate={garage.defaultVatRate}
           />
         </div>

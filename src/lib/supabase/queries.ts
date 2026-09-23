@@ -65,6 +65,7 @@ type JobCardRow = Tables<"job_cards"> & {
 };
 type InvoiceRow = Tables<"invoices"> & {
   invoice_line_items: Tables<"invoice_line_items">[];
+  invoice_jobs: Tables<"invoice_jobs">[];
 };
 type CreditNoteRow = Tables<"credit_notes"> & {
   credit_note_line_items: Tables<"credit_note_line_items">[];
@@ -427,6 +428,7 @@ function mapInvoice(row: InvoiceRow): Invoice {
     id: row.id,
     number: row.number,
     jobId: row.job_id,
+    jobIds: (row.invoice_jobs ?? []).map((link) => link.job_id),
     customerId: row.customer_id,
     vehicleId: row.vehicle_id,
     date: row.date,
@@ -476,7 +478,7 @@ function mapEstimate(row: EstimateRow): Estimate {
 }
 
 const JOB_CARD_SELECT = "*, job_labour_lines(*), job_part_lines(*)";
-const INVOICE_SELECT = "*, invoice_line_items(*)";
+const INVOICE_SELECT = "*, invoice_line_items(*), invoice_jobs(job_id)";
 const ESTIMATE_SELECT = "*, estimate_lines(*)";
 
 // ---- Customers ----
@@ -874,16 +876,15 @@ export async function getJobCards(): Promise<JobCard[]> {
         .eq("garage_id", garageId)
         .order("created_at", { ascending: false }),
       supabase
-        .from("invoices")
-        .select("id, job_id")
-        .eq("garage_id", garageId)
-        .not("job_id", "is", null),
+        .from("invoice_jobs")
+        .select("invoice_id, job_id")
+        .eq("garage_id", garageId),
     ]);
   if (error) throw new Error(error.message);
   if (invError) throw new Error(invError.message);
 
   const invoiceIdByJobId = new Map(
-    (invoiceLinks ?? []).map((inv) => [inv.job_id as string, inv.id])
+    (invoiceLinks ?? []).map((link) => [link.job_id, link.invoice_id])
   );
 
   return (data ?? []).map((row) =>
@@ -896,14 +897,29 @@ export async function getJobsForCustomer(
 ): Promise<JobCard[]> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
-  const { data, error } = await supabase
-    .from("job_cards")
-    .select(JOB_CARD_SELECT)
-    .eq("customer_id", customerId)
-    .eq("garage_id", garageId)
-    .order("created_at", { ascending: false });
+  const [{ data, error }, { data: invoiceLinks, error: invError }] =
+    await Promise.all([
+      supabase
+        .from("job_cards")
+        .select(JOB_CARD_SELECT)
+        .eq("customer_id", customerId)
+        .eq("garage_id", garageId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("invoice_jobs")
+        .select("invoice_id, job_id")
+        .eq("garage_id", garageId),
+    ]);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => mapJobCard(row as JobCardRow));
+  if (invError) throw new Error(invError.message);
+
+  const invoiceIdByJobId = new Map(
+    (invoiceLinks ?? []).map((link) => [link.job_id, link.invoice_id])
+  );
+
+  return (data ?? []).map((row) =>
+    mapJobCard(row as JobCardRow, invoiceIdByJobId.get(row.id))
+  );
 }
 
 export async function getJob(id: string): Promise<JobCard | undefined> {
@@ -917,15 +933,15 @@ export async function getJob(id: string): Promise<JobCard | undefined> {
       .eq("garage_id", garageId)
       .maybeSingle(),
     supabase
-      .from("invoices")
-      .select("id")
+      .from("invoice_jobs")
+      .select("invoice_id")
       .eq("job_id", id)
       .eq("garage_id", garageId)
       .maybeSingle(),
   ]);
   if (error) throw new Error(error.message);
   if (!data) return undefined;
-  return mapJobCard(data as JobCardRow, invoiceLink?.id);
+  return mapJobCard(data as JobCardRow, invoiceLink?.invoice_id);
 }
 
 export async function getJobStatusHistory(jobId: string): Promise<JobStatusHistoryEntry[]> {

@@ -6,12 +6,14 @@ import {
   getCustomers,
   getGarageSettings,
   getInvoice,
+  getJobCards,
   getVehicle,
   getVehicles,
 } from "@/lib/supabase/queries";
 import { invoiceTotals } from "@/lib/totals";
 import { InvoiceView } from "@/components/invoices/InvoiceView";
 import { CreditNotesList } from "@/components/invoices/CreditNotesList";
+import { LinkedJobsList } from "@/components/invoices/LinkedJobsList";
 
 export default async function InvoiceDetailPage({
   params,
@@ -22,15 +24,17 @@ export default async function InvoiceDetailPage({
   const invoice = await getInvoice(id);
   if (!invoice) notFound();
 
-  const [customer, vehicle, customers, vehicles, garage, creditNotes] = await Promise.all([
+  const [customer, vehicle, customers, vehicles, garage, creditNotes, allJobs] = await Promise.all([
     getCustomer(invoice.customerId),
     invoice.vehicleId ? getVehicle(invoice.vehicleId) : Promise.resolve(undefined),
     getCustomers(),
     getVehicles(),
     getGarageSettings(),
     getCreditNotesForInvoice(invoice.id),
+    invoice.jobIds.length > 0 ? getJobCards() : Promise.resolve([]),
   ]);
   const totals = invoiceTotals(invoice);
+  const linkedJobs = allJobs.filter((j) => invoice.jobIds.includes(j.id));
 
   return (
     <>
@@ -45,7 +49,8 @@ export default async function InvoiceDetailPage({
           vehicles={vehicles}
           garage={garage}
         />
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-3xl space-y-4">
+          <LinkedJobsList jobs={linkedJobs} />
           <CreditNotesList creditNotes={creditNotes} invoiceId={invoice.id} />
         </div>
       </main>

@@ -1004,6 +1004,7 @@ export interface InvoiceInput {
   status?: InvoiceStatus;
   notes?: string;
   lineItems: { description: string; quantity: number; unitPrice: number }[];
+  jobIds?: string[];
 }
 
 export async function addInvoice(input: InvoiceInput): Promise<MutationResult> {
@@ -1041,6 +1042,17 @@ export async function addInvoice(input: InvoiceInput): Promise<MutationResult> {
         }))
       );
     if (lineItemsError) return { error: lineItemsError.message };
+  }
+
+  if (input.jobIds && input.jobIds.length > 0) {
+    const { error: jobsError } = await supabase.from("invoice_jobs").insert(
+      input.jobIds.map((jobId) => ({
+        garage_id: garageId,
+        invoice_id: invoice.id,
+        job_id: jobId,
+      }))
+    );
+    if (jobsError) return { error: jobsError.message };
   }
 
   revalidatePath("/invoices");
