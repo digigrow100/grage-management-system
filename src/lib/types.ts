@@ -319,6 +319,28 @@ export interface Invoice {
   notes?: string | null;
 }
 
+export type CreditNoteStatus = "draft" | "issued" | "void";
+
+export interface CreditNoteLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CreditNote {
+  id: string;
+  number: string | null;
+  invoiceId: string;
+  customerId: string;
+  date: string;
+  status: CreditNoteStatus;
+  reason: string | null;
+  vatRate: number;
+  notes: string | null;
+  lineItems: CreditNoteLineItem[];
+}
+
 export type EstimateStatus = "draft" | "sent" | "accepted" | "declined" | "expired" | "booked";
 export type EstimateLineType = "labour" | "part" | "other";
 

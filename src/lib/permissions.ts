@@ -29,6 +29,7 @@ export const PERMISSIONS = {
   manageFeedback: ["owner", "manager", "service_advisor"],
   readStock: ["owner", "manager", "service_advisor", "technician"],
   manageStock: ["owner", "manager", "service_advisor"],
+  manageInvoices: ["owner", "manager", "service_advisor"],
 } as const satisfies Record<string, readonly GarageRole[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

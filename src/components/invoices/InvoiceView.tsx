@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRightLeft, Download, Loader2 } from "lucide-react";
 import { InvoicePaper, A4_WIDTH_PX, A4_HEIGHT_PX } from "./InvoicePaper";
 import { EditInvoiceButton } from "@/components/forms/EditInvoiceModal";
 import { DeleteButton } from "@/components/ui/DeleteButton";
+import { CreateCreditNoteButton } from "@/components/invoices/CreateCreditNoteModal";
 import { convertEstimateToInvoice, deleteInvoice } from "@/lib/supabase/mutations";
 import type { Customer, GarageSettings, Invoice, Vehicle } from "@/lib/types";
 
@@ -132,6 +133,9 @@ export function InvoiceView({
               )}
               {converting ? "Converting..." : "Convert to Invoice"}
             </button>
+          ) : null}
+          {invoice.status !== "estimate" && invoice.status !== "draft" ? (
+            <CreateCreditNoteButton invoice={invoice} />
           ) : null}
           <button
             type="button"
