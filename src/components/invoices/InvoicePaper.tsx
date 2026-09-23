@@ -11,6 +11,8 @@ const DEFAULT_GARAGE: GarageSettings = {
   vatNumber: "GB123456789",
   defaultVatRate: 20,
   invoicePrefix: "INV",
+  bookingWidgetToken: "",
+  bookingWidgetEnabled: false,
 };
 
 // A4 at 96 DPI: 210mm x 297mm

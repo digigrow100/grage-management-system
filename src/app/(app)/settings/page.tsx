@@ -14,6 +14,7 @@ import { CalendarSettingsForm } from "@/components/forms/CalendarSettingsForm";
 import { ServiceCatalogueEditor } from "@/components/forms/ServiceCatalogueEditor";
 import { ReminderSettingsForm } from "@/components/forms/ReminderSettingsForm";
 import { VhcTemplateEditor } from "@/components/forms/VhcTemplateEditor";
+import { BookingWidgetSettings } from "@/components/settings/BookingWidgetSettings";
 
 export default async function SettingsPage() {
   const [settings, openingHours, closures, services, reminderSettings, vhcTemplates] = await Promise.all([
@@ -34,6 +35,7 @@ export default async function SettingsPage() {
           <OpeningHoursEditor openingHours={openingHours} />
           <ClosuresManager closures={closures} />
           <CalendarSettingsForm settings={settings} />
+          <BookingWidgetSettings token={settings.bookingWidgetToken} enabled={settings.bookingWidgetEnabled} />
           <ServiceCatalogueEditor services={services} />
           <VhcTemplateEditor templates={vhcTemplates} />
           <ReminderSettingsForm settings={reminderSettings} />

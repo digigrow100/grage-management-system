@@ -21,6 +21,7 @@ import { JOB_STATUS_LABELS, JOB_STATUS_TRANSITIONS } from "@/lib/job-status";
 
 export interface MutationResult {
   error?: string;
+  id?: string;
 }
 
 export interface CustomerAddressInput {
@@ -625,7 +626,7 @@ export async function addBooking(input: AddBookingInput): Promise<MutationResult
   revalidatePath("/diary");
   revalidatePath("/jobs");
   revalidatePath("/");
-  return {};
+  return { id: booking.id };
 }
 
 export async function deleteBooking(id: string): Promise<MutationResult> {
@@ -651,6 +652,211 @@ export async function deleteBooking(id: string): Promise<MutationResult> {
   revalidatePath("/diary");
   revalidatePath("/jobs");
   revalidatePath("/");
+  return {};
+}
+
+// ---- Public booking-request widget ----
+
+export async function getBookingWidgetInfoByToken(
+  token: string
+): Promise<{ garageName: string; enabled: boolean } | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .rpc("get_booking_widget_info", { p_token: token })
+    .single();
+  if (error || !data) return null;
+  return { garageName: data.garage_name, enabled: data.enabled };
+}
+
+export interface SubmitBookingRequestInput {
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  vehicleRegistration?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  jobType: JobType;
+  preferredDate?: string;
+  preferredTime?: string;
+  notes?: string;
+}
+
+export async function submitBookingRequest(
+  token: string,
+  input: SubmitBookingRequestInput
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("create_booking_request", {
+    p_token: token,
+    p_customer_name: input.customerName,
+    p_customer_email: input.customerEmail || "",
+    p_customer_phone: input.customerPhone || "",
+    p_vehicle_registration: input.vehicleRegistration || "",
+    p_vehicle_make: input.vehicleMake || "",
+    p_vehicle_model: input.vehicleModel || "",
+    p_job_type: input.jobType,
+    p_preferred_date: (input.preferredDate || null) as unknown as string,
+    p_preferred_time: (input.preferredTime || null) as unknown as string,
+    p_notes: input.notes || "",
+  });
+
+  if (error) return { error: error.message };
+  return {};
+}
+
+// ---- Staff-side booking requests ----
+
+export async function declineBookingRequest(
+  id: string,
+  reason?: string
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageBookings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("booking_requests")
+    .update({
+      status: "declined",
+      decided_at: new Date().toISOString(),
+      decided_by: user?.id ?? null,
+      decline_reason: reason || null,
+    })
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .eq("status", "pending");
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/booking-requests");
+  return {};
+}
+
+export interface AcceptBookingRequestInput {
+  customerId: string;
+  date: string;
+  time?: string;
+  durationMinutes?: number;
+  priority?: JobPriority;
+  employeeId?: string;
+  bay?: string;
+}
+
+export async function acceptBookingRequest(
+  id: string,
+  input: AcceptBookingRequestInput
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageBookings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: request, error: requestError } = await supabase
+    .from("booking_requests")
+    .select("*")
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .eq("status", "pending")
+    .single();
+
+  if (requestError || !request) return { error: "Booking request not found or already actioned." };
+
+  const bookingResult = await addBooking({
+    customerId: input.customerId,
+    jobType: request.job_type as JobType,
+    date: input.date,
+    time: input.time,
+    durationMinutes: input.durationMinutes,
+    priority: input.priority,
+    employeeId: input.employeeId,
+    bay: input.bay,
+    notes: [request.notes, request.vehicle_registration ? `Vehicle: ${request.vehicle_registration}` : null]
+      .filter(Boolean)
+      .join(" — ") || undefined,
+  });
+
+  if (bookingResult.error || !bookingResult.id) return bookingResult;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("booking_requests")
+    .update({
+      status: "converted",
+      decided_at: new Date().toISOString(),
+      decided_by: user?.id ?? null,
+      booking_id: bookingResult.id,
+    })
+    .eq("id", id)
+    .eq("garage_id", garageId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/booking-requests");
+  revalidatePath("/diary");
+  return {};
+}
+
+export async function setBookingWidgetEnabled(enabled: boolean): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("garage_settings")
+    .update({ booking_widget_enabled: enabled })
+    .eq("id", garageId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  revalidatePath("/booking-requests");
+  return {};
+}
+
+export async function regenerateBookingWidgetToken(): Promise<MutationResult> {
+  try {
+    await requirePermission("manageGarageSettings");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const newToken =
+    crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+
+  const { error } = await supabase
+    .from("garage_settings")
+    .update({ booking_widget_token: newToken })
+    .eq("id", garageId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
   return {};
 }
 
