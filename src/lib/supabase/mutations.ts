@@ -56,6 +56,13 @@ export interface AddCustomerInput extends CustomerAddressInput, CustomerContactP
 }
 
 export async function addCustomer(input: AddCustomerInput): Promise<MutationResult> {
+  try {
+    await requirePermission("manageCustomers");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -162,6 +169,13 @@ function describeDependencyCounts(counts: CustomerDependencyCounts): string[] {
 }
 
 export async function deleteCustomer(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageCustomers");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -290,6 +304,13 @@ export async function deleteCustomerCascade(id: string): Promise<MutationResult>
 }
 
 export async function archiveCustomer(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageCustomers");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -308,6 +329,13 @@ export async function archiveCustomer(id: string): Promise<MutationResult> {
 }
 
 export async function restoreCustomer(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageCustomers");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -342,6 +370,13 @@ export async function updateCustomer(
   id: string,
   input: UpdateCustomerInput
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageCustomers");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -428,6 +463,13 @@ export async function addVehicle(
   customerId: string,
   input: VehicleInput
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageVehicles");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -475,6 +517,13 @@ export async function updateVehicle(
   id: string,
   input: VehicleInput
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageVehicles");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -1109,6 +1158,18 @@ export async function updateJobLines(
   if (jobError) return { error: jobError.message };
   if (!job) return { error: "Job not found." };
 
+  // Read the job's current inventory-linked part quantities before they're
+  // replaced, so the net change can be posted to the stock ledger below —
+  // otherwise parts used on a job never move stock at all.
+  const { data: existingPartLines, error: existingPartsError } = await supabase
+    .from("job_part_lines")
+    .select("part_id, quantity")
+    .eq("job_id", jobId)
+    .eq("garage_id", garageId)
+    .not("part_id", "is", null);
+
+  if (existingPartsError) return { error: existingPartsError.message };
+
   const { error: deleteLabourError } = await supabase
     .from("job_labour_lines")
     .delete()
@@ -1154,10 +1215,68 @@ export async function updateJobLines(
     if (error) return { error: error.message };
   }
 
+  const stockError = await applyJobPartStockDelta(
+    supabase,
+    garageId,
+    jobId,
+    existingPartLines ?? [],
+    partLines
+  );
+  if (stockError) return { error: stockError };
+
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${jobId}`);
+  revalidatePath("/inventory");
   revalidatePath("/");
   return {};
+}
+
+/**
+ * Posts the net change in inventory-linked part quantities on a job to the
+ * stock_movements ledger (parts.stock_level is kept in sync by a DB
+ * trigger). Only rows with a part_id count — ad-hoc/description-only part
+ * lines aren't tracked in inventory. Net decreases in quantity (more used)
+ * post a "sale"; net increases (parts removed from the job) post a "return".
+ */
+async function applyJobPartStockDelta(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  garageId: string,
+  jobId: string,
+  previousLines: { part_id: string | null; quantity: number }[],
+  nextLines: { partId?: string | null; quantity: number }[]
+): Promise<string | null> {
+  const before = new Map<string, number>();
+  for (const line of previousLines) {
+    if (!line.part_id) continue;
+    before.set(line.part_id, (before.get(line.part_id) ?? 0) + line.quantity);
+  }
+
+  const after = new Map<string, number>();
+  for (const line of nextLines) {
+    if (!line.partId) continue;
+    after.set(line.partId, (after.get(line.partId) ?? 0) + line.quantity);
+  }
+
+  const partIds = new Set([...before.keys(), ...after.keys()]);
+  const movements = [...partIds]
+    .map((partId) => {
+      const delta = (after.get(partId) ?? 0) - (before.get(partId) ?? 0);
+      if (delta === 0) return null;
+      return {
+        garage_id: garageId,
+        part_id: partId,
+        movement_type: delta > 0 ? "sale" : "return",
+        quantity: -delta,
+        reference_type: "job",
+        reference_id: jobId,
+      };
+    })
+    .filter((m): m is NonNullable<typeof m> => m !== null);
+
+  if (movements.length === 0) return null;
+
+  const { error } = await supabase.from("stock_movements").insert(movements);
+  return error ? error.message : null;
 }
 
 export async function deleteJobCard(id: string): Promise<MutationResult> {
@@ -1171,6 +1290,20 @@ export async function deleteJobCard(id: string): Promise<MutationResult> {
     .eq("garage_id", garageId);
 
   if (labourError) return { error: labourError.message };
+
+  // Give back any inventory-linked stock the job's part lines had
+  // consumed, mirroring updateJobLines removing a part line.
+  const { data: existingPartLines, error: existingPartsError } = await supabase
+    .from("job_part_lines")
+    .select("part_id, quantity")
+    .eq("job_id", id)
+    .eq("garage_id", garageId)
+    .not("part_id", "is", null);
+
+  if (existingPartsError) return { error: existingPartsError.message };
+
+  const stockError = await applyJobPartStockDelta(supabase, garageId, id, existingPartLines ?? [], []);
+  if (stockError) return { error: stockError };
 
   const { error: partsError } = await supabase
     .from("job_part_lines")
@@ -1197,6 +1330,7 @@ export async function deleteJobCard(id: string): Promise<MutationResult> {
   if (error) return { error: error.message };
 
   revalidatePath("/jobs");
+  revalidatePath("/inventory");
   revalidatePath("/");
   return {};
 }
@@ -2520,6 +2654,13 @@ export interface ReminderInput {
 }
 
 export async function addReminder(input: ReminderInput): Promise<MutationResult> {
+  try {
+    await requirePermission("manageReminders");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -2552,6 +2693,13 @@ export async function toggleReminderDone(
   id: string,
   done: boolean
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageReminders");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -2569,6 +2717,13 @@ export async function toggleReminderDone(
 }
 
 export async function cancelReminder(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageReminders");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -2585,6 +2740,13 @@ export async function cancelReminder(id: string): Promise<MutationResult> {
 }
 
 export async function retryReminder(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageReminders");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -2602,6 +2764,13 @@ export async function retryReminder(id: string): Promise<MutationResult> {
 }
 
 export async function deleteReminder(id: string): Promise<MutationResult> {
+  try {
+    await requirePermission("manageReminders");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -2681,7 +2850,10 @@ export async function processDueReminders(): Promise<MutationResult & { processe
 
   if (error) return { error: error.message };
 
-  revalidatePath("/reminders");
+  // No revalidatePath() here deliberately: this runs during the reminders
+  // page's own render (not a Server Action), where revalidatePath isn't
+  // supported — and it's unnecessary anyway, since that page fetches fresh
+  // reminders in the same request right after calling this.
   return { processed: data?.length ?? 0 };
 }
 
