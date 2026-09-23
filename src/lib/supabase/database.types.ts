@@ -992,6 +992,52 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_jobs: {
+        Row: {
+          created_at: string
+          garage_id: string
+          id: string
+          invoice_id: string
+          job_id: string
+        }
+        Insert: {
+          created_at?: string
+          garage_id: string
+          id?: string
+          invoice_id: string
+          job_id: string
+        }
+        Update: {
+          created_at?: string
+          garage_id?: string
+          id?: string
+          invoice_id?: string
+          job_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_jobs_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_jobs_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_jobs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "job_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_line_items: {
         Row: {
           description: string

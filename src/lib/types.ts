@@ -340,6 +340,7 @@ export interface Invoice {
   id: string;
   number: string;
   jobId?: string | null;
+  jobIds: string[];
   customerId: string;
   vehicleId: string | null;
   date: string;
