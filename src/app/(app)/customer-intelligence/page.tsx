@@ -2,8 +2,8 @@ import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { StatCard } from "@/components/ui/StatCard";
-import { getBookings, getCustomers, getInvoices } from "@/lib/supabase/queries";
-import { invoiceTotals } from "@/lib/totals";
+import { getBookings, getCreditNotes, getCustomers, getInvoices } from "@/lib/supabase/queries";
+import { creditedTotalsByInvoice, netInvoiceTotals } from "@/lib/totals";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/format";
 import { Users, PoundSterling, UserCheck, UserX } from "lucide-react";
 
@@ -17,11 +17,13 @@ function segmentFor(daysSinceLastVisit: number | null): { label: string; tone: S
 }
 
 export default async function CustomerIntelligencePage() {
-  const [customers, bookings, invoices] = await Promise.all([
+  const [customers, bookings, invoices, creditNotes] = await Promise.all([
     getCustomers(),
     getBookings(),
     getInvoices(),
+    getCreditNotes(),
   ]);
+  const creditedByInvoice = creditedTotalsByInvoice(creditNotes);
 
   // Only count visits that have actually happened, so a future booking can't
   // masquerade as the customer's most recent (and put them in "Active").
@@ -37,11 +39,12 @@ export default async function CustomerIntelligencePage() {
     bookingsByCustomer.set(b.customerId, list);
   }
 
-  // Lifetime spend reflects money actually collected, not billed-but-unpaid.
+  // Lifetime spend reflects money actually collected, not billed-but-unpaid —
+  // and nets out any issued credit note (refund) against the same invoice.
   const spendByCustomer = new Map<string, number>();
   for (const inv of invoices) {
     if (inv.status !== "paid") continue;
-    const total = invoiceTotals(inv).total;
+    const total = netInvoiceTotals(inv, creditedByInvoice).total;
     spendByCustomer.set(inv.customerId, (spendByCustomer.get(inv.customerId) ?? 0) + total);
   }
 
