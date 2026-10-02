@@ -1,7 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/feedback", "/service-history", "/book"];
+// Exact routes that need no auth at all.
+const PUBLIC_PATHS = ["/login", "/signup"];
+
+// Token-namespaced routes (e.g. /feedback/<token>) that are public, but only
+// for paths *under* the prefix — the bare path itself is a real staff page
+// requiring auth (e.g. /feedback is the staff NPS page, /booking-requests is
+// the staff inbox). A plain startsWith() check would wrongly treat both the
+// staff page and any other-page sharing the prefix (/booking-requests starts
+// with "/book") as public and bounce a logged-in user straight back to "/".
+const PUBLIC_PATH_PREFIXES = ["/feedback/", "/service-history/", "/book/"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -31,9 +40,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublicPath = PUBLIC_PATHS.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
+  const isPublicPath =
+    PUBLIC_PATHS.includes(request.nextUrl.pathname) ||
+    PUBLIC_PATH_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix));
 
   if (!user && !isPublicPath) {
     const loginUrl = request.nextUrl.clone();
