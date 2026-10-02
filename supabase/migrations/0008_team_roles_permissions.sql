@@ -112,20 +112,12 @@ from auth.users u
 where u.id = gm.user_id
   and gm.email is null;
 
-do $
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'garage_members_role_id_fkey'
-      and conrelid = 'public.garage_members'::regclass
-  ) then
-    alter table public.garage_members
-      add constraint garage_members_role_id_fkey
-      foreign key (role_id) references public.garage_roles(id) on delete restrict;
-  end if;
-end
-$;
+alter table public.garage_members
+  drop constraint if exists garage_members_role_id_fkey;
+
+alter table public.garage_members
+  add constraint garage_members_role_id_fkey
+  foreign key (role_id) references public.garage_roles(id) on delete restrict;
 
 create or replace function private.sync_garage_member_role()
 returns trigger
