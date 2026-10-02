@@ -675,7 +675,7 @@ export interface VehicleMileageEntry {
   recordedAt: string;
 }
 
-export type GarageRole = "owner" | "manager" | "service_advisor" | "technician";
+export type GarageRole = string;
 
 export interface Garage {
   id: string;
