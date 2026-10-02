@@ -212,7 +212,7 @@ export interface GarageSettings {
   invoicePrefix: string;
 }
 
-export type GarageRole = "owner" | "manager" | "technician" | "other";
+export type GarageRole = string;
 
 export interface Garage {
   id: string;
