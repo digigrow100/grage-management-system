@@ -4,7 +4,6 @@ import { useMemo, useState, useTransition } from "react";
 import { ShieldCheck, UserPlus, Users, X } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import {
-  TEAM_PERMISSIONS,
   cancelTeamInvite,
   createTeamRole,
   deleteTeamRole,
@@ -12,9 +11,8 @@ import {
   removeTeamMember,
   updateMemberRole,
   updateTeamRole,
-  type TeamManagementData,
-  type TeamRole,
 } from "@/lib/supabase/team-actions";
+import { TEAM_PERMISSIONS, type TeamManagementData, type TeamRole } from "@/lib/team-roles";
 
 function roleLabel(role: TeamRole | undefined, fallback = "Unknown") {
   return role?.name ?? fallback;
