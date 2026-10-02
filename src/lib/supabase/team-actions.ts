@@ -203,7 +203,7 @@ export async function inviteTeamMember(
   email: string,
   roleId: string
 ): Promise<TeamActionResult> {
-  const { db, garageId, user, canManage } = await getContext();
+  const { supabase, db, garageId, canManage } = await getContext();
   if (!canManage) return { error: "Only an owner or admin can add team members." };
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -220,18 +220,21 @@ export async function inviteTeamMember(
 
   if (!role) return { error: "Select a valid role." };
 
-  const { error } = await db.from("garage_invites").upsert(
-    {
-      garage_id: garageId,
-      email: normalizedEmail,
-      role_id: roleId,
-      invited_by: user.id,
-      accepted_at: null,
-    },
-    { onConflict: "garage_id,email" }
-  );
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    return { error: "Your session expired. Please sign in again." };
+  }
+
+  const { data, error } = await supabase.functions.invoke("invite-garage-user", {
+    body: { garageId, email: normalizedEmail, roleId },
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
 
   if (error) return { error: error.message };
+  if (data?.error) return { error: String(data.error) };
 
   revalidatePath("/settings");
   return { success: true };
