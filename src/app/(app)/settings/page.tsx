@@ -15,23 +15,20 @@ import { ServiceCatalogueEditor } from "@/components/forms/ServiceCatalogueEdito
 import { ReminderSettingsForm } from "@/components/forms/ReminderSettingsForm";
 import { VhcTemplateEditor } from "@/components/forms/VhcTemplateEditor";
 import { BookingWidgetSettings } from "@/components/settings/BookingWidgetSettings";
-import { TeamRolesSettings } from "@/components/forms/TeamRolesSettings";
-import { getTeamManagementData } from "@/lib/supabase/team-actions";
 
 export default async function SettingsPage() {
-  const [settings, openingHours, closures, services, reminderSettings, vhcTemplates, teamData] = await Promise.all([
+  const [settings, openingHours, closures, services, reminderSettings, vhcTemplates] = await Promise.all([
     getGarageSettings(),
     getGarageOpeningHours(),
     getGarageClosures(),
     getServiceCatalogue(),
     getReminderSettings(),
     getVhcTemplates(),
-    getTeamManagementData(),
   ]);
 
   return (
     <>
-      <TopBar title="Settings" subtitle="Garage profile, hours, team and permissions" />
+      <TopBar title="Settings" subtitle="Garage profile, hours and defaults" />
       <main className="flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
         <div className="mx-auto max-w-3xl space-y-6">
           <SettingsForm settings={settings} />
@@ -42,7 +39,6 @@ export default async function SettingsPage() {
           <ServiceCatalogueEditor services={services} />
           <VhcTemplateEditor templates={vhcTemplates} />
           <ReminderSettingsForm settings={reminderSettings} />
-          <TeamRolesSettings data={teamData} />
         </div>
       </main>
     </>
