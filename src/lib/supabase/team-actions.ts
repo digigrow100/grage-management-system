@@ -139,7 +139,7 @@ export async function updateTeamRole(
 
   const { data: role } = await db
     .from("garage_roles")
-    .select("is_system")
+    .select("is_system,slug")
     .eq("id", roleId)
     .eq("garage_id", garageId)
     .single();
@@ -148,14 +148,12 @@ export async function updateTeamRole(
   if (role.is_system) return { error: "Built-in roles cannot be edited." };
 
   const name = input.name.trim();
-  const slug = slugifyRole(name);
-  if (!name || !slug) return { error: "Role name is required." };
+  if (!name) return { error: "Role name is required." };
 
   const { error } = await db
     .from("garage_roles")
     .update({
       name,
-      slug,
       description: input.description.trim() || null,
       permissions: validatePermissions(input.permissions),
       updated_at: new Date().toISOString(),
