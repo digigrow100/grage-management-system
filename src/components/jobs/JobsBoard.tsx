@@ -3,13 +3,27 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Search } from "lucide-react";
-import { Card } from "@/components/ui/Card";
+import {
+  RefreshCw,
+  Search,
+  Wrench,
+  ClipboardList,
+  Clock3,
+  PackageSearch,
+  CircleCheck,
+  UserRound,
+} from "lucide-react";
+import { StatCard } from "@/components/ui/StatCard";
+import { Card, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { deleteJobCard } from "@/lib/supabase/mutations";
 import { jobLineTotal } from "@/lib/totals";
-import { addMinutesToTime, formatCurrency, formatDateSlash } from "@/lib/format";
+import {
+  addMinutesToTime,
+  formatCurrency,
+  formatDateSlash,
+} from "@/lib/format";
 import {
   JOB_STATUS_LABELS,
   JOB_STATUS_TONE,
@@ -41,15 +55,15 @@ export function JobsBoard({
 
   const customerById = useMemo(
     () => new Map(customers.map((c) => [c.id, c])),
-    [customers]
+    [customers],
   );
   const vehicleById = useMemo(
     () => new Map(vehicles.map((v) => [v.id, v])),
-    [vehicles]
+    [vehicles],
   );
   const bookingById = useMemo(
     () => new Map(bookings.map((b) => [b.id, b])),
-    [bookings]
+    [bookings],
   );
 
   const filtered = useMemo(() => {
@@ -57,8 +71,14 @@ export function JobsBoard({
     return jobCards.filter((job) => {
       if (term) {
         const customer = customerById.get(job.customerId);
-        const vehicle = job.vehicleId ? vehicleById.get(job.vehicleId) : undefined;
-        const haystack = [customer?.name, customer?.email, vehicle?.registration]
+        const vehicle = job.vehicleId
+          ? vehicleById.get(job.vehicleId)
+          : undefined;
+        const haystack = [
+          customer?.name,
+          customer?.email,
+          vehicle?.registration,
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
@@ -76,9 +96,45 @@ export function JobsBoard({
     setTimeout(() => setRefreshing(false), 400);
   }
 
+  const working = jobCards.filter((job) =>
+    ["checked_in", "in_progress", "authorised"].includes(job.status),
+  ).length;
+  const waiting = jobCards.filter((job) =>
+    ["awaiting_parts", "awaiting_authorisation"].includes(job.status),
+  ).length;
+  const completed = jobCards.filter((job) =>
+    ["completed", "vehicle_released", "invoiced"].includes(job.status),
+  ).length;
+
   return (
-    <div className="space-y-4">
-      <Card className="p-4">
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Total job cards"
+          value={String(jobCards.length)}
+          icon={ClipboardList}
+          tone="blue"
+        />
+        <StatCard
+          label="Work in progress"
+          value={String(working)}
+          icon={Wrench}
+          tone="amber"
+        />
+        <StatCard
+          label="Awaiting parts or approval"
+          value={String(waiting)}
+          icon={PackageSearch}
+          tone="red"
+        />
+        <StatCard
+          label="Completed jobs"
+          value={String(completed)}
+          icon={CircleCheck}
+          tone="green"
+        />
+      </div>
+      <Card className="rounded-2xl p-4 sm:p-5">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_1fr_auto_auto]">
           <div className="sm:col-span-1">
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -90,11 +146,12 @@ export function JobsBoard({
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
               />
               <input
-                type="text"
+                type="search"
+                aria-label="Search jobs"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by customer, email, or VRM..."
-                className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm shadow-sm transition-all focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/10"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm shadow-sm transition-all focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/10"
               />
             </div>
           </div>
@@ -104,6 +161,7 @@ export function JobsBoard({
             </label>
             <input
               type="date"
+              aria-label="Jobs due from date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-all focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/10"
@@ -115,6 +173,7 @@ export function JobsBoard({
             </label>
             <input
               type="date"
+              aria-label="Jobs due to date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition-all focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/10"
@@ -151,23 +210,32 @@ export function JobsBoard({
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-500">
-          Showing <span className="font-medium text-slate-900">{filtered.length}</span> of{" "}
-          <span className="font-medium text-slate-900">{jobCards.length}</span> jobs
+          Showing{" "}
+          <span className="font-medium text-slate-900">{filtered.length}</span>{" "}
+          of{" "}
+          <span className="font-medium text-slate-900">{jobCards.length}</span>{" "}
+          jobs
         </p>
         <button
           type="button"
           onClick={handleRefresh}
           className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
         >
-          <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} /> Refresh
+          <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />{" "}
+          Refresh
         </button>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden rounded-2xl">
+        <CardHeader
+          title="Job card register"
+          subtitle="Service details, schedules, and workshop progress"
+          icon={Wrench}
+        />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-left text-xs text-slate-500">
+              <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs text-slate-500">
                 <th className="px-5 py-3 font-medium">Vehicle</th>
                 <th className="px-5 py-3 font-medium">Customer</th>
                 <th className="px-5 py-3 font-medium">Schedule</th>
@@ -181,10 +249,15 @@ export function JobsBoard({
             <tbody>
               {filtered.map((job) => {
                 const customer = customerById.get(job.customerId);
-                const vehicle = job.vehicleId ? vehicleById.get(job.vehicleId) : undefined;
-                const booking = job.bookingId ? bookingById.get(job.bookingId) : undefined;
+                const vehicle = job.vehicleId
+                  ? vehicleById.get(job.vehicleId)
+                  : undefined;
+                const booking = job.bookingId
+                  ? bookingById.get(job.bookingId)
+                  : undefined;
                 const { total } = jobLineTotal(job);
-                const itemsCount = job.labourLines.length + job.partLines.length;
+                const itemsCount =
+                  job.labourLines.length + job.partLines.length;
                 const vehicleDesc = [vehicle?.make, vehicle?.model]
                   .filter(Boolean)
                   .join(" ");
@@ -192,32 +265,67 @@ export function JobsBoard({
                 return (
                   <tr
                     key={job.id}
-                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                    tabIndex={0}
+                    aria-label={`Open job for ${vehicle?.registration ?? customer?.name ?? "unassigned vehicle"}`}
+                    onClick={(event) => {
+                      if (
+                        (event.target as HTMLElement).closest(
+                          "a, button, input, select, textarea",
+                        )
+                      )
+                        return;
+                      router.push(`/jobs/${job.id}`);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(`/jobs/${job.id}`);
+                      }
+                    }}
+                    className="cursor-pointer border-b border-slate-50 last:border-0 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-accent-600"
                   >
                     <td className="px-5 py-3">
                       <Link
                         href={`/jobs/${job.id}`}
-                        className="font-medium text-slate-900 hover:no-underline"
+                        className="inline-block whitespace-nowrap rounded-md border border-amber-200 bg-amber-100 px-2 py-1 font-bold tracking-wide text-slate-900"
                       >
                         {vehicle?.registration ?? "No vehicle"}
                       </Link>
                       {vehicleDesc ? (
-                        <p className="text-xs uppercase text-slate-400">{vehicleDesc}</p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {vehicleDesc}
+                        </p>
                       ) : null}
+                      <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+                        <Wrench size={13} className="shrink-0" />
+                        {job.description || "Untitled job"}
+                      </p>
                     </td>
                     <td className="px-5 py-3">
-                      <p className="text-slate-900">{customer?.name ?? "—"}</p>
-                      <p className="text-xs text-slate-400">{customer?.email}</p>
+                      <p className="font-semibold text-slate-900">
+                        {customer?.name ?? "—"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {customer?.email}
+                      </p>
+                      <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+                        <UserRound size={13} />
+                        {job.technician || "Unassigned"}
+                      </p>
                     </td>
                     <td className="px-5 py-3">
                       {job.dueDate ? (
                         <>
-                          <p className="text-slate-900">{formatDateSlash(job.dueDate)}</p>
+                          <p className="text-slate-900">
+                            {formatDateSlash(job.dueDate)}
+                          </p>
                           {booking?.time ? (
                             <p className="text-xs text-slate-400">
-                              {booking.time}
+                              <Clock3 size={12} className="mr-1 inline" />
+                              {booking.time.slice(0, 5)}
                               {booking.durationMinutes
-                                ? ` - ${addMinutesToTime(booking.time, booking.durationMinutes)}`
+                                ? ` - ${addMinutesToTime(booking.time.slice(0, 5), booking.durationMinutes)}`
                                 : ""}
                             </p>
                           ) : null}
@@ -232,12 +340,15 @@ export function JobsBoard({
                       </Badge>
                     </td>
                     <td className="px-5 py-3">
-                      <Badge tone={JOB_PRIORITY_TONE[job.priority]} className="uppercase">
+                      <Badge
+                        tone={JOB_PRIORITY_TONE[job.priority]}
+                        className="uppercase"
+                      >
                         {JOB_PRIORITY_LABELS[job.priority]}
                       </Badge>
                     </td>
                     <td className="px-5 py-3 text-slate-500">{itemsCount}</td>
-                    <td className="px-5 py-3 text-right font-medium text-slate-900">
+                    <td className="px-5 py-3 text-right font-semibold tabular-nums text-slate-900">
                       {formatCurrency(total)}
                     </td>
                     <td className="px-5 py-3 text-right">
@@ -253,7 +364,10 @@ export function JobsBoard({
               })}
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-5 py-6 text-center text-sm text-slate-400">
+                  <td
+                    colSpan={8}
+                    className="px-5 py-6 text-center text-sm text-slate-400"
+                  >
                     No jobs found.
                   </td>
                 </tr>
