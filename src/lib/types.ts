@@ -213,6 +213,7 @@ export interface Reminder {
 
 export interface GarageSettings {
   id: string;
+  timezone: string;
   garageName: string;
   addressLine: string;
   city: string;

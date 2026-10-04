@@ -40,10 +40,12 @@ export function BookJobButton({
   customers,
   employees,
   vehicles,
+  initialDate,
 }: {
   customers: Customer[];
   employees: Employee[];
   vehicles: Vehicle[];
+  initialDate?: string;
 }) {
   const can = usePermission();
   const router = useRouter();
@@ -121,6 +123,7 @@ export function BookJobButton({
       return;
     }
 
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
 
@@ -130,13 +133,14 @@ export function BookJobButton({
       serviceValues,
       storageValues,
     );
+    const bookingDate = String(formData.get("date") ?? "");
     const result = await addBooking({
       customerId,
       vehicleId,
       time: String(formData.get("time") ?? ""),
       durationMinutes: Number(formData.get("duration") ?? 60),
       jobType: jobType as JobType,
-      date: String(formData.get("date") ?? ""),
+      date: bookingDate,
       estPrice: estPrice ? Number(estPrice) : undefined,
       priority: String(formData.get("priority") ?? "medium") as JobPriority,
       technician: String(formData.get("technician") ?? ""),
@@ -154,7 +158,8 @@ export function BookJobButton({
 
     setOpen(false);
     resetForm();
-    router.refresh();
+    if (bookingDate === initialDate) router.refresh();
+    else router.push(`/diary?date=${encodeURIComponent(bookingDate)}`);
   }
 
   if (!can("bookings.manage")) return null;
@@ -288,6 +293,7 @@ export function BookJobButton({
                 id="date"
                 name="date"
                 type="date"
+                defaultValue={initialDate}
                 icon={CalendarClock}
                 required
               />

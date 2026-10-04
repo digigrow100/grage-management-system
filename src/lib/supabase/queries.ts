@@ -125,6 +125,7 @@ function mapReminder(row: ReminderRow): Reminder {
 function mapGarageSettings(row: GarageSettingsRow): GarageSettings {
   return {
     id: row.id,
+    timezone: row.timezone,
     garageName: row.garage_name,
     addressLine: row.address_line,
     city: row.city,
@@ -496,6 +497,7 @@ export async function getGarageSettings(): Promise<GarageSettings> {
   if (data) return mapGarageSettings(data);
   return {
     id: "",
+    timezone: "Europe/London",
     garageName: "My Garage Ltd",
     addressLine: "",
     city: "",

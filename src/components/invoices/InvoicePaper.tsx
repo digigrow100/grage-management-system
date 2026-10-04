@@ -4,6 +4,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 
 const DEFAULT_GARAGE: GarageSettings = {
   id: "",
+  timezone: "Europe/London",
   garageName: "My Garage Ltd",
   addressLine: "14 Workshop Way",
   city: "Manchester",
