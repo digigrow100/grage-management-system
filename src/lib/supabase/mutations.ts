@@ -61,6 +61,54 @@ export async function addCustomer(input: {
   return {};
 }
 
+export async function addVehicle(input: {
+  customerId: string;
+  registration: string;
+  make?: string;
+  model?: string;
+  colour?: string;
+  year?: number;
+  mileage?: number;
+  motDue?: string;
+  lastServiceDate?: string;
+}): Promise<MutationResult> {
+  const registration = input.registration.trim().toUpperCase();
+  if (!registration || registration.length > 20) return { error: "Enter a valid vehicle registration." };
+  if (input.year !== undefined && (!Number.isInteger(input.year) || input.year < 1886 || input.year > new Date().getFullYear() + 1)) {
+    return { error: "Enter a valid vehicle year." };
+  }
+  if (input.mileage !== undefined && (!Number.isInteger(input.mileage) || input.mileage < 0 || input.mileage > 2147483647)) {
+    return { error: "Enter a valid mileage." };
+  }
+  for (const date of [input.motDue, input.lastServiceDate]) {
+    if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date)) {
+      return { error: "Enter a valid date." };
+    }
+  }
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data: customer, error: customerError } = await supabase.from("customers")
+    .select("id, archived").eq("id", input.customerId).eq("garage_id", garageId).single();
+  if (customerError || !customer || customer.archived) return { error: "This customer is unavailable. Refresh and try again." };
+  const { error } = await supabase.from("vehicles").insert({
+    garage_id: garageId,
+    customer_id: customer.id,
+    registration,
+    make: input.make?.trim() || null,
+    model: input.model?.trim() || null,
+    colour: input.colour?.trim() || null,
+    year: input.year ?? null,
+    mileage: input.mileage ?? null,
+    mot_due: input.motDue || null,
+    last_service_date: input.lastServiceDate || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/customers/${customer.id}`);
+  revalidatePath("/customers");
+  revalidatePath("/");
+  return {};
+}
+
 export interface CustomerDependencyCounts {
   vehicles: number;
   bookings: number;

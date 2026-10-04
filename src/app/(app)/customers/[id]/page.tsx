@@ -16,6 +16,7 @@ import { invoiceTotals } from "@/lib/totals";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/format";
 import { ArrowLeft } from "lucide-react";
 import { EditCustomerButton } from "@/components/forms/EditCustomerModal";
+import { AddVehicleButton } from "@/components/forms/AddVehicleModal";
 import { JOB_STATUS_LABELS, JOB_STATUS_TONE } from "@/lib/job-status";
 
 const invoiceStatusTone: Record<string, "neutral" | "blue" | "green" | "amber" | "red" | "purple"> = {
@@ -99,6 +100,7 @@ export default async function CustomerDetailPage({
             <CardHeader
               title="Vehicles"
               subtitle={`${vehicles.length} on record`}
+              action={customer.archived ? undefined : <AddVehicleButton customerId={customer.id} customerName={customer.name} />}
             />
             <CardBody className="p-0">
               <div className="overflow-x-auto">
