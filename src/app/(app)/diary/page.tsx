@@ -1,3 +1,4 @@
+import { BookingCalendar } from "@/components/bookings/BookingCalendar";
 import { BookingCard } from "@/components/bookings/BookingCard";
 import {
   bookingCalendarDays,
@@ -9,7 +10,6 @@ import {
 import { requirePermission } from "@/lib/supabase/permissions";
 import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
-import { Card } from "@/components/ui/Card";
 import {
   getGarageSettings,
   getActiveCustomers,
@@ -57,7 +57,7 @@ export default async function DiaryPage({
     typeof query.date === "string" && isCalendarDate(query.date)
       ? query.date
       : today;
-  const days = bookingCalendarDays(startDate, CALENDAR_DAYS * 3);
+  const days = bookingCalendarDays(shiftCalendarDate(startDate, -CALENDAR_DAYS), CALENDAR_DAYS * 4);
   const previousDate = shiftCalendarDate(startDate, -CALENDAR_DAYS);
   const nextDate = shiftCalendarDate(startDate, CALENDAR_DAYS);
 
@@ -65,7 +65,7 @@ export default async function DiaryPage({
     <>
       <TopBar
         title="Bookings"
-        subtitle={`${days[0].label} ${startDate.slice(0, 4)} – ${days[days.length - 1].label} ${days[days.length - 1].date.slice(0, 4)} · ${settings.timezone}`}
+        subtitle={`${days[0].label} ${days[0].date.slice(0, 4)} – ${days[days.length - 1].label} ${days[days.length - 1].date.slice(0, 4)} · ${settings.timezone}`}
       />
       <main className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -120,37 +120,33 @@ export default async function DiaryPage({
           />
         </div>
         <p className="text-xs text-slate-500">
-          Scroll sideways for more dates. Scroll inside a day to see more
-          bookings.
+          Earlier days are above on mobile; upcoming days are below. On larger
+          screens, scroll sideways for more dates.
         </p>
-        <div
-          role="region"
-          aria-label="Scrollable booking calendar"
-          tabIndex={0}
-          className="booking-calendar-scroll max-w-full overflow-x-auto rounded-xl pb-3 focus-visible:outline-2 focus-visible:outline-accent-500"
-        >
-          <div className="grid grid-flow-col auto-cols-[280px] gap-4">
+        <BookingCalendar selectedDate={startDate}>
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-flow-col md:auto-cols-[310px] md:grid-cols-none">
             {days.map((day) => {
               const dayBookings = bookings
                 .filter((b) => b.date === day.date)
                 .sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
               return (
-                <Card
+                <section
+                  data-calendar-date={day.date}
                   key={day.date}
-                  className={`flex h-[65vh] min-h-[320px] max-h-[640px] flex-col ${day.date === today ? "booking-calendar-today ring-1 ring-blue-200" : ""}`}
+                  className={`overflow-hidden rounded-2xl border shadow-sm ${day.date === today ? "booking-calendar-today" : "border-slate-200 bg-slate-50"}`}
                 >
                   <div
-                    className={`shrink-0 border-b px-4 py-3 ${day.date === today ? "border-blue-200 bg-blue-100/60" : "border-slate-100"}`}
+                    className={`shrink-0 border-b px-4 py-3 ${day.date === today ? "border-white/15 bg-white/5" : "border-slate-100"}`}
                   >
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className={day.date === today ? "text-sm font-semibold text-white" : "text-sm font-semibold text-slate-900"}>
                       {day.label}
                       {day.date === today ? (
-                        <span className="ml-2 rounded-full bg-accent-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                        <span className="ml-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">
                           Today
                         </span>
                       ) : null}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className={day.date === today ? "mt-1 text-xs text-blue-200" : "mt-1 text-xs text-slate-500"}>
                       {dayBookings.length} booking
                       {dayBookings.length === 1 ? "" : "s"}
                     </p>
@@ -158,11 +154,10 @@ export default async function DiaryPage({
                   <div
                     role="region"
                     aria-label={`Bookings for ${day.label}`}
-                    tabIndex={0}
-                    className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 focus-visible:outline-2 focus-visible:outline-accent-500"
+                    className="space-y-3 p-3"
                   >
                     {dayBookings.length === 0 ? (
-                      <p className="px-2 py-4 text-center text-xs text-slate-400">
+                      <p className={day.date === today ? "px-2 py-8 text-center text-xs text-blue-200" : "px-2 py-8 text-center text-xs text-slate-400"}>
                         No bookings
                       </p>
                     ) : (
@@ -201,11 +196,11 @@ export default async function DiaryPage({
                       })
                     )}
                   </div>
-                </Card>
+                </section>
               );
             })}
           </div>
-        </div>
+        </BookingCalendar>
       </main>
     </>
   );

@@ -76,6 +76,6 @@ body {
 }
 
 .booking-calendar-today {
-  background-color: var(--accent-50);
-  border-color: #bfdbfe;
+  background: linear-gradient(160deg, #172c50, #0b1730);
+  border-color: #1d3a6e;
 }
