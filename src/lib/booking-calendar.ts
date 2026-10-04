@@ -29,14 +29,14 @@ export function shiftCalendarDate(value: string, offset: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function bookingCalendarDays(start: string) {
+export function bookingCalendarDays(start: string, count = CALENDAR_DAYS) {
   const label = new Intl.DateTimeFormat("en-GB", {
     timeZone: "UTC",
     weekday: "short",
     day: "numeric",
     month: "short",
   });
-  return Array.from({ length: CALENDAR_DAYS }, (_, index) => {
+  return Array.from({ length: count }, (_, index) => {
     const date = shiftCalendarDate(start, index);
     return { date, label: label.format(new Date(`${date}T00:00:00Z`)) };
   });
