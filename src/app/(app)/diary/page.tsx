@@ -1,3 +1,4 @@
+import { BookingCard } from "@/components/bookings/BookingCard";
 import {
   bookingCalendarDays,
   CALENDAR_DAYS,
@@ -9,8 +10,6 @@ import { requirePermission } from "@/lib/supabase/permissions";
 import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { DeleteButton } from "@/components/ui/DeleteButton";
 import {
   getGarageSettings,
   getActiveCustomers,
@@ -20,11 +19,7 @@ import {
   getJobCards,
   getVehicles,
 } from "@/lib/supabase/queries";
-import { deleteBooking } from "@/lib/supabase/mutations";
 import { BookJobButton } from "@/components/forms/BookJobModal";
-import { JOB_TYPE_LABELS, JOB_TYPE_TONE } from "@/lib/job-types";
-import { formatCurrency } from "@/lib/format";
-import { formatServiceDetailsSummary } from "@/lib/service-fields";
 
 export default async function DiaryPage({
   searchParams,
@@ -54,10 +49,8 @@ export default async function DiaryPage({
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const vehicleById = new Map(vehicles.map((v) => [v.id, v]));
-  const jobIdByBookingId = new Map(
-    jobCards
-      .filter((j) => j.bookingId)
-      .map((j) => [j.bookingId as string, j.id]),
+  const jobByBookingId = new Map(
+    jobCards.filter((j) => j.bookingId).map((j) => [j.bookingId as string, j]),
   );
   const today = workshopToday(settings.timezone);
   const startDate =
@@ -134,7 +127,7 @@ export default async function DiaryPage({
           role="region"
           aria-label="Scrollable booking calendar"
           tabIndex={0}
-          className="max-w-full overflow-x-auto rounded-xl pb-3 focus-visible:outline-2 focus-visible:outline-accent-500"
+          className="booking-calendar-scroll max-w-full overflow-x-auto rounded-xl pb-3 focus-visible:outline-2 focus-visible:outline-accent-500"
         >
           <div className="grid grid-flow-col auto-cols-[280px] gap-4">
             {days.map((day) => {
@@ -144,11 +137,18 @@ export default async function DiaryPage({
               return (
                 <Card
                   key={day.date}
-                  className="flex h-[65vh] min-h-[320px] max-h-[640px] flex-col"
+                  className={`flex h-[65vh] min-h-[320px] max-h-[640px] flex-col ${day.date === today ? "booking-calendar-today ring-1 ring-blue-200" : ""}`}
                 >
-                  <div className="shrink-0 border-b border-slate-100 px-4 py-3">
+                  <div
+                    className={`shrink-0 border-b px-4 py-3 ${day.date === today ? "border-blue-200 bg-blue-100/60" : "border-slate-100"}`}
+                  >
                     <p className="text-sm font-semibold text-slate-900">
                       {day.label}
+                      {day.date === today ? (
+                        <span className="ml-2 rounded-full bg-accent-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                          Today
+                        </span>
+                      ) : null}
                     </p>
                     <p className="text-xs text-slate-500">
                       {dayBookings.length} booking
@@ -171,70 +171,32 @@ export default async function DiaryPage({
                         const vehicle = b.vehicleId
                           ? vehicleById.get(b.vehicleId)
                           : undefined;
-                        const jobId = jobIdByBookingId.get(b.id);
-                        const assignment = [b.bay, b.technician]
-                          .filter(Boolean)
-                          .join(" · ");
+                        const job = jobByBookingId.get(b.id);
                         return (
-                          <div
+                          <BookingCard
                             key={b.id}
-                            className="rounded-lg border border-slate-100 p-2.5"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <Badge tone={JOB_TYPE_TONE[b.jobType]}>
-                                {JOB_TYPE_LABELS[b.jobType]}
-                              </Badge>
-                              {b.time ? (
-                                <span className="text-xs font-semibold text-slate-900">
-                                  {b.time}
-                                </span>
-                              ) : null}
-                            </div>
-                            <p className="mt-1.5 text-sm font-medium text-slate-900">
-                              {customer?.name ?? "Unknown customer"}
-                            </p>
-                            {vehicle ? (
-                              <p className="text-xs text-slate-500">
-                                {vehicle.registration}
-                              </p>
-                            ) : null}
-                            {b.estPrice != null ? (
-                              <p className="mt-1 text-xs font-medium text-slate-700">
-                                Est. {formatCurrency(b.estPrice)}
-                              </p>
-                            ) : null}
-                            {formatServiceDetailsSummary(b.serviceDetails) ? (
-                              <p className="mt-1 text-xs text-slate-500">
-                                {formatServiceDetailsSummary(b.serviceDetails)}
-                              </p>
-                            ) : null}
-                            {b.notes ? (
-                              <p className="mt-1 line-clamp-2 text-xs text-slate-500">
-                                {b.notes}
-                              </p>
-                            ) : null}
-                            <div className="mt-1.5 flex items-center justify-between">
-                              <span className="text-xs text-slate-400">
-                                {assignment || "Unassigned"}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                {jobId ? (
-                                  <Link
-                                    href={`/jobs/${jobId}`}
-                                    className="text-xs font-medium text-accent-600 hover:underline"
-                                  >
-                                    View job →
-                                  </Link>
-                                ) : null}
-                                <DeleteButton
-                                  id={b.id}
-                                  action={deleteBooking}
-                                  label="Delete booking"
-                                  confirmMessage={`Delete this booking for ${customer?.name ?? "this customer"}? This cannot be undone.`}
-                                />
-                              </div>
-                            </div>
-                          </div>
+                            booking={b}
+                            customer={
+                              customer
+                                ? {
+                                    name: customer.name,
+                                    email: customer.email,
+                                    phone: customer.phone,
+                                  }
+                                : undefined
+                            }
+                            vehicle={
+                              vehicle
+                                ? {
+                                    registration: vehicle.registration,
+                                    make: vehicle.make,
+                                    model: vehicle.model,
+                                  }
+                                : undefined
+                            }
+                            dateLabel={`${day.label} ${day.date.slice(0, 4)}`}
+                            jobStatus={job?.status}
+                          />
                         );
                       })
                     )}
