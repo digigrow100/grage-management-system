@@ -64,7 +64,7 @@ export default async function DiaryPage({
     typeof query.date === "string" && isCalendarDate(query.date)
       ? query.date
       : today;
-  const days = bookingCalendarDays(startDate);
+  const days = bookingCalendarDays(startDate, CALENDAR_DAYS * 3);
   const previousDate = shiftCalendarDate(startDate, -CALENDAR_DAYS);
   const nextDate = shiftCalendarDate(startDate, CALENDAR_DAYS);
 
@@ -126,104 +126,123 @@ export default async function DiaryPage({
             initialDate={startDate}
           />
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
-          {days.map((day) => {
-            const dayBookings = bookings
-              .filter((b) => b.date === day.date)
-              .sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
-            return (
-              <Card key={day.date} className="flex flex-col">
-                <div className="border-b border-slate-100 px-4 py-3">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {day.label}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {dayBookings.length} booking
-                    {dayBookings.length === 1 ? "" : "s"}
-                  </p>
-                </div>
-                <div className="flex-1 space-y-2 p-3">
-                  {dayBookings.length === 0 ? (
-                    <p className="px-2 py-4 text-center text-xs text-slate-400">
-                      No bookings
+        <p className="text-xs text-slate-500">
+          Scroll sideways for more dates. Scroll inside a day to see more
+          bookings.
+        </p>
+        <div
+          role="region"
+          aria-label="Scrollable booking calendar"
+          tabIndex={0}
+          className="max-w-full overflow-x-auto rounded-xl pb-3 focus-visible:outline-2 focus-visible:outline-accent-500"
+        >
+          <div className="grid grid-flow-col auto-cols-[280px] gap-4">
+            {days.map((day) => {
+              const dayBookings = bookings
+                .filter((b) => b.date === day.date)
+                .sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+              return (
+                <Card
+                  key={day.date}
+                  className="flex h-[65vh] min-h-[320px] max-h-[640px] flex-col"
+                >
+                  <div className="shrink-0 border-b border-slate-100 px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {day.label}
                     </p>
-                  ) : (
-                    dayBookings.map((b) => {
-                      const customer = customerById.get(b.customerId);
-                      const vehicle = b.vehicleId
-                        ? vehicleById.get(b.vehicleId)
-                        : undefined;
-                      const jobId = jobIdByBookingId.get(b.id);
-                      const assignment = [b.bay, b.technician]
-                        .filter(Boolean)
-                        .join(" · ");
-                      return (
-                        <div
-                          key={b.id}
-                          className="rounded-lg border border-slate-100 p-2.5"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge tone={JOB_TYPE_TONE[b.jobType]}>
-                              {JOB_TYPE_LABELS[b.jobType]}
-                            </Badge>
-                            {b.time ? (
-                              <span className="text-xs font-semibold text-slate-900">
-                                {b.time}
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="mt-1.5 text-sm font-medium text-slate-900">
-                            {customer?.name ?? "Unknown customer"}
-                          </p>
-                          {vehicle ? (
-                            <p className="text-xs text-slate-500">
-                              {vehicle.registration}
-                            </p>
-                          ) : null}
-                          {b.estPrice != null ? (
-                            <p className="mt-1 text-xs font-medium text-slate-700">
-                              Est. {formatCurrency(b.estPrice)}
-                            </p>
-                          ) : null}
-                          {formatServiceDetailsSummary(b.serviceDetails) ? (
-                            <p className="mt-1 text-xs text-slate-500">
-                              {formatServiceDetailsSummary(b.serviceDetails)}
-                            </p>
-                          ) : null}
-                          {b.notes ? (
-                            <p className="mt-1 line-clamp-2 text-xs text-slate-500">
-                              {b.notes}
-                            </p>
-                          ) : null}
-                          <div className="mt-1.5 flex items-center justify-between">
-                            <span className="text-xs text-slate-400">
-                              {assignment || "Unassigned"}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              {jobId ? (
-                                <Link
-                                  href={`/jobs/${jobId}`}
-                                  className="text-xs font-medium text-accent-600 hover:underline"
-                                >
-                                  View job →
-                                </Link>
+                    <p className="text-xs text-slate-500">
+                      {dayBookings.length} booking
+                      {dayBookings.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <div
+                    role="region"
+                    aria-label={`Bookings for ${day.label}`}
+                    tabIndex={0}
+                    className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 focus-visible:outline-2 focus-visible:outline-accent-500"
+                  >
+                    {dayBookings.length === 0 ? (
+                      <p className="px-2 py-4 text-center text-xs text-slate-400">
+                        No bookings
+                      </p>
+                    ) : (
+                      dayBookings.map((b) => {
+                        const customer = customerById.get(b.customerId);
+                        const vehicle = b.vehicleId
+                          ? vehicleById.get(b.vehicleId)
+                          : undefined;
+                        const jobId = jobIdByBookingId.get(b.id);
+                        const assignment = [b.bay, b.technician]
+                          .filter(Boolean)
+                          .join(" · ");
+                        return (
+                          <div
+                            key={b.id}
+                            className="rounded-lg border border-slate-100 p-2.5"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <Badge tone={JOB_TYPE_TONE[b.jobType]}>
+                                {JOB_TYPE_LABELS[b.jobType]}
+                              </Badge>
+                              {b.time ? (
+                                <span className="text-xs font-semibold text-slate-900">
+                                  {b.time}
+                                </span>
                               ) : null}
-                              <DeleteButton
-                                id={b.id}
-                                action={deleteBooking}
-                                label="Delete booking"
-                                confirmMessage={`Delete this booking for ${customer?.name ?? "this customer"}? This cannot be undone.`}
-                              />
+                            </div>
+                            <p className="mt-1.5 text-sm font-medium text-slate-900">
+                              {customer?.name ?? "Unknown customer"}
+                            </p>
+                            {vehicle ? (
+                              <p className="text-xs text-slate-500">
+                                {vehicle.registration}
+                              </p>
+                            ) : null}
+                            {b.estPrice != null ? (
+                              <p className="mt-1 text-xs font-medium text-slate-700">
+                                Est. {formatCurrency(b.estPrice)}
+                              </p>
+                            ) : null}
+                            {formatServiceDetailsSummary(b.serviceDetails) ? (
+                              <p className="mt-1 text-xs text-slate-500">
+                                {formatServiceDetailsSummary(b.serviceDetails)}
+                              </p>
+                            ) : null}
+                            {b.notes ? (
+                              <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                                {b.notes}
+                              </p>
+                            ) : null}
+                            <div className="mt-1.5 flex items-center justify-between">
+                              <span className="text-xs text-slate-400">
+                                {assignment || "Unassigned"}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {jobId ? (
+                                  <Link
+                                    href={`/jobs/${jobId}`}
+                                    className="text-xs font-medium text-accent-600 hover:underline"
+                                  >
+                                    View job →
+                                  </Link>
+                                ) : null}
+                                <DeleteButton
+                                  id={b.id}
+                                  action={deleteBooking}
+                                  label="Delete booking"
+                                  confirmMessage={`Delete this booking for ${customer?.name ?? "this customer"}? This cannot be undone.`}
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </Card>
-            );
-          })}
+                        );
+                      })
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       </main>
     </>
