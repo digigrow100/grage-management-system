@@ -83,21 +83,21 @@ export function BookingCard({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Open ${service} booking for ${name}`}
-        className={`group block w-full rounded-xl border border-slate-200 border-l-4 ${borderColour[tone]} bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500`}
+        className={`group block w-full rounded-2xl border border-slate-200 border-l-4 ${borderColour[tone]} bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500`}
       >
         <span className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums text-slate-900">
+          <span className="flex items-center gap-1.5 text-lg font-bold tabular-nums tracking-tight text-slate-900">
             <Clock3 size={14} className="text-slate-400" aria-hidden="true" />
             {time ?? "Time not set"}
           </span>
           {duration ? (
-            <span className="text-xs text-slate-500">{duration} min</span>
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">{duration} min</span>
           ) : null}
         </span>
         <span className="mt-3 block">
           <Badge tone={tone}>{service}</Badge>
         </span>
-        <span className="mt-2 block text-sm font-semibold leading-5 text-slate-900">
+        <span className="mt-3 block text-base font-semibold leading-6 text-slate-900">
           {name}
         </span>
         <span className="mt-2 flex items-center gap-2 text-xs">
@@ -106,10 +106,20 @@ export function BookingCard({
             className="shrink-0 text-slate-400"
             aria-hidden="true"
           />
-          <span className="rounded-md bg-slate-100 px-2 py-1 font-semibold tracking-wide text-slate-700">
+          <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-bold tracking-wider text-slate-900">
             {vehicle?.registration ?? "No vehicle assigned"}
           </span>
         </span>
+        {vehicle?.make || vehicle?.model ? (
+          <span className="mt-1.5 block pl-6 text-xs text-slate-500">
+            {[vehicle.make, vehicle.model].filter(Boolean).join(" ")}
+          </span>
+        ) : null}
+        {jobStatus ? (
+          <span className="mt-3 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">
+            {JOB_STATUS_LABELS[jobStatus]}
+          </span>
+        ) : null}
         <span className="mt-3 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
           <span className="min-w-0 space-y-1 text-xs text-slate-500">
             <span className="flex items-center gap-1.5">
@@ -129,7 +139,7 @@ export function BookingCard({
             <span className="block text-[10px] uppercase tracking-wide text-slate-400">
               Estimate
             </span>
-            <span className="text-sm font-semibold text-slate-800">
+            <span className="text-base font-bold text-slate-800">
               {booking.estPrice != null
                 ? formatCurrency(booking.estPrice)
                 : "—"}
@@ -137,7 +147,7 @@ export function BookingCard({
           </span>
         </span>
         <span className="mt-3 flex items-center justify-between text-[11px] font-medium text-accent-600">
-          Booking details
+          View details
           <ArrowUpRight size={14} aria-hidden="true" />
         </span>
       </button>
