@@ -12,7 +12,6 @@ import type {
   JobType,
   ServiceDetails,
 } from "@/lib/types";
-import { JOB_TYPE_LABELS } from "@/lib/job-types";
 
 export interface MutationResult {
   error?: string;
@@ -73,23 +72,44 @@ export async function addVehicle(input: {
   lastServiceDate?: string;
 }): Promise<MutationResult> {
   const registration = input.registration.trim().toUpperCase();
-  if (!registration || registration.length > 20) return { error: "Enter a valid vehicle registration." };
-  if (input.year !== undefined && (!Number.isInteger(input.year) || input.year < 1886 || input.year > new Date().getFullYear() + 1)) {
+  if (!registration || registration.length > 20)
+    return { error: "Enter a valid vehicle registration." };
+  if (
+    input.year !== undefined &&
+    (!Number.isInteger(input.year) ||
+      input.year < 1886 ||
+      input.year > new Date().getFullYear() + 1)
+  ) {
     return { error: "Enter a valid vehicle year." };
   }
-  if (input.mileage !== undefined && (!Number.isInteger(input.mileage) || input.mileage < 0 || input.mileage > 2147483647)) {
+  if (
+    input.mileage !== undefined &&
+    (!Number.isInteger(input.mileage) ||
+      input.mileage < 0 ||
+      input.mileage > 2147483647)
+  ) {
     return { error: "Enter a valid mileage." };
   }
   for (const date of [input.motDue, input.lastServiceDate]) {
-    if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date)) {
+    if (
+      date &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        !Number.isFinite(Date.parse(date)) ||
+        new Date(date).toISOString().slice(0, 10) !== date)
+    ) {
       return { error: "Enter a valid date." };
     }
   }
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
-  const { data: customer, error: customerError } = await supabase.from("customers")
-    .select("id, archived").eq("id", input.customerId).eq("garage_id", garageId).single();
-  if (customerError || !customer || customer.archived) return { error: "This customer is unavailable. Refresh and try again." };
+  const { data: customer, error: customerError } = await supabase
+    .from("customers")
+    .select("id, archived")
+    .eq("id", input.customerId)
+    .eq("garage_id", garageId)
+    .single();
+  if (customerError || !customer || customer.archived)
+    return { error: "This customer is unavailable. Refresh and try again." };
   const { error } = await supabase.from("vehicles").insert({
     garage_id: garageId,
     customer_id: customer.id,
@@ -117,7 +137,7 @@ export interface CustomerDependencyCounts {
 }
 
 export async function getCustomerDependencyCounts(
-  id: string
+  id: string,
 ): Promise<CustomerDependencyCounts> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -145,7 +165,8 @@ export async function getCustomerDependencyCounts(
       .eq("garage_id", garageId),
   ]);
 
-  const error = vehicles.error ?? bookings.error ?? jobs.error ?? invoices.error;
+  const error =
+    vehicles.error ?? bookings.error ?? jobs.error ?? invoices.error;
   if (error) throw new Error(error.message);
 
   return {
@@ -158,10 +179,13 @@ export async function getCustomerDependencyCounts(
 
 function describeDependencyCounts(counts: CustomerDependencyCounts): string[] {
   return [
-    counts.vehicles > 0 && `${counts.vehicles} vehicle${counts.vehicles === 1 ? "" : "s"}`,
-    counts.bookings > 0 && `${counts.bookings} booking${counts.bookings === 1 ? "" : "s"}`,
+    counts.vehicles > 0 &&
+      `${counts.vehicles} vehicle${counts.vehicles === 1 ? "" : "s"}`,
+    counts.bookings > 0 &&
+      `${counts.bookings} booking${counts.bookings === 1 ? "" : "s"}`,
     counts.jobs > 0 && `${counts.jobs} job${counts.jobs === 1 ? "" : "s"}`,
-    counts.invoices > 0 && `${counts.invoices} invoice${counts.invoices === 1 ? "" : "s"}`,
+    counts.invoices > 0 &&
+      `${counts.invoices} invoice${counts.invoices === 1 ? "" : "s"}`,
   ].filter((p): p is string => Boolean(p));
 }
 
@@ -173,7 +197,10 @@ export async function deleteCustomer(id: string): Promise<MutationResult> {
   try {
     counts = await getCustomerDependencyCounts(id);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Failed to check related records." };
+    return {
+      error:
+        e instanceof Error ? e.message : "Failed to check related records.",
+    };
   }
 
   const parts = describeDependencyCounts(counts);
@@ -196,7 +223,9 @@ export async function deleteCustomer(id: string): Promise<MutationResult> {
   return {};
 }
 
-export async function deleteCustomerCascade(id: string): Promise<MutationResult> {
+export async function deleteCustomerCascade(
+  id: string,
+): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -213,7 +242,7 @@ export async function deleteCustomerCascade(id: string): Promise<MutationResult>
       .delete()
       .in(
         "invoice_id",
-        invoiceIds.map((i) => i.id)
+        invoiceIds.map((i) => i.id),
       )
       .eq("garage_id", garageId);
     if (error) return { error: error.message };
@@ -332,7 +361,8 @@ export async function updateCustomer(
     city: string;
     postCode: string;
     notes?: string;
-  }
+    emailOptIn?: boolean;
+  },
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -347,6 +377,9 @@ export async function updateCustomer(
       city: input.city,
       post_code: input.postCode,
       notes: input.notes || null,
+      ...(input.emailOptIn === undefined
+        ? {}
+        : { email_opt_in: input.emailOptIn }),
     })
     .eq("id", id)
     .eq("garage_id", garageId);
@@ -360,8 +393,11 @@ export async function updateCustomer(
 
 export async function addBooking(input: {
   customerId: string;
+  vehicleId: string;
   jobType: JobType;
   date: string;
+  time: string;
+  durationMinutes: number;
   estPrice?: number;
   priority?: JobPriority;
   technician?: string;
@@ -371,43 +407,22 @@ export async function addBooking(input: {
 }): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
-  const technician = input.technician?.trim() || null;
-  const bay = input.bay?.trim() || null;
-
-  const { data: booking, error } = await supabase
-    .from("bookings")
-    .insert({
-      garage_id: garageId,
-      customer_id: input.customerId,
-      job_type: input.jobType,
-      date: input.date,
-      est_price: input.estPrice ?? null,
-      technician,
-      bay,
-      notes: input.notes || null,
-      service_details: (input.serviceDetails as unknown as Json) ?? null,
-    })
-    .select("id")
-    .single();
-
-  if (error) return { error: error.message };
-
-  // A booking always creates its job card so the job moves through the
-  // workshop board (booked -> in progress -> ... -> invoiced) from here.
-  const { error: jobError } = await supabase.from("job_cards").insert({
-    garage_id: garageId,
-    booking_id: booking.id,
-    customer_id: input.customerId,
-    status: "booked",
-    priority: input.priority ?? "medium",
-    technician,
-    description: JOB_TYPE_LABELS[input.jobType],
-    due_date: input.date,
-    notes: input.notes || null,
+  const { error } = await supabase.rpc("create_workshop_booking", {
+    p_garage: garageId,
+    p_customer: input.customerId,
+    p_vehicle: input.vehicleId,
+    p_type: input.jobType,
+    p_date: input.date,
+    p_time: input.time,
+    p_duration: input.durationMinutes,
+    p_price: input.estPrice ?? 0,
+    p_priority: input.priority ?? "medium",
+    p_technician: input.technician ?? "",
+    p_bay: input.bay ?? "",
+    p_notes: input.notes ?? "",
+    p_details: (input.serviceDetails ?? {}) as unknown as Json,
   });
-
-  if (jobError) return { error: jobError.message };
-
+  if (error) return { error: error.message };
   revalidatePath("/diary");
   revalidatePath("/jobs");
   revalidatePath("/");
@@ -442,7 +457,7 @@ export async function deleteBooking(id: string): Promise<MutationResult> {
 
 export async function updateJobStatus(
   id: string,
-  status: JobStatus
+  status: JobStatus,
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -463,7 +478,7 @@ export async function updateJobStatus(
 
 export async function updateJobPriority(
   id: string,
-  priority: JobPriority
+  priority: JobPriority,
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -484,7 +499,7 @@ export async function updateJobPriority(
 
 export async function updateJobTechnician(
   id: string,
-  technician: string | null
+  technician: string | null,
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -510,73 +525,28 @@ export interface JobLinesInput {
     description: string;
     quantity: number;
     unitPrice: number;
+    costPrice?: number;
   }[];
 }
 
 export async function updateJobLines(
   jobId: string,
-  input: JobLinesInput
+  input: JobLinesInput,
 ): Promise<MutationResult> {
   const supabase = await createClient();
-  const garageId = await getCurrentGarageId();
-
-  const { data: job, error: jobError } = await supabase
-    .from("job_cards")
-    .select("id")
-    .eq("id", jobId)
-    .eq("garage_id", garageId)
-    .maybeSingle();
-
-  if (jobError) return { error: jobError.message };
-  if (!job) return { error: "Job not found." };
-
-  const { error: deleteLabourError } = await supabase
-    .from("job_labour_lines")
-    .delete()
-    .eq("job_id", jobId)
-    .eq("garage_id", garageId);
-
-  if (deleteLabourError) return { error: deleteLabourError.message };
-
-  const { error: deletePartsError } = await supabase
-    .from("job_part_lines")
-    .delete()
-    .eq("job_id", jobId)
-    .eq("garage_id", garageId);
-
-  if (deletePartsError) return { error: deletePartsError.message };
-
-  const labourLines = input.labourLines.filter((l) => l.description.trim());
-  if (labourLines.length > 0) {
-    const { error } = await supabase.from("job_labour_lines").insert(
-      labourLines.map((l) => ({
-        garage_id: garageId,
-        job_id: jobId,
-        description: l.description,
-        hours: l.hours,
-        rate: l.rate,
-      }))
-    );
-    if (error) return { error: error.message };
-  }
-
-  const partLines = input.partLines.filter((l) => l.description.trim());
-  if (partLines.length > 0) {
-    const { error } = await supabase.from("job_part_lines").insert(
-      partLines.map((l) => ({
-        garage_id: garageId,
-        job_id: jobId,
-        part_id: l.partId || null,
-        description: l.description,
-        quantity: l.quantity,
-        unit_price: l.unitPrice,
-      }))
-    );
-    if (error) return { error: error.message };
-  }
-
+  const { error } = await supabase.rpc("save_workshop_job_lines", {
+    p_job: jobId,
+    p_labour: input.labourLines.filter((l) =>
+      l.description.trim(),
+    ) as unknown as Json,
+    p_parts: input.partLines.filter((l) =>
+      l.description.trim(),
+    ) as unknown as Json,
+  });
+  if (error) return { error: error.message };
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${jobId}`);
+  revalidatePath("/inventory");
   revalidatePath("/");
   return {};
 }
@@ -633,102 +603,41 @@ export interface InvoiceInput {
   lineItems: { description: string; quantity: number; unitPrice: number }[];
 }
 
-export async function addInvoice(input: InvoiceInput): Promise<MutationResult> {
-  const supabase = await createClient();
-  const garageId = await getCurrentGarageId();
-
-  const { data: invoice, error } = await supabase
-    .from("invoices")
-    .insert({
-      garage_id: garageId,
-      customer_id: input.customerId,
-      vehicle_id: input.vehicleId || null,
-      date: input.invoiceDate,
-      due_date: input.dueDate,
-      vat_rate: input.vatRate,
-      status: input.status,
-      notes: input.notes || null,
-    })
-    .select("id")
-    .single();
-
-  if (error) return { error: error.message };
-
-  const lineItems = input.lineItems.filter((li) => li.description.trim());
-  if (lineItems.length > 0) {
-    const { error: lineItemsError } = await supabase
-      .from("invoice_line_items")
-      .insert(
-        lineItems.map((li) => ({
-          garage_id: garageId,
-          invoice_id: invoice.id,
-          description: li.description,
-          quantity: li.quantity,
-          unit_price: li.unitPrice,
-        }))
-      );
-    if (lineItemsError) return { error: lineItemsError.message };
-  }
-
-  revalidatePath("/invoices");
-  revalidatePath("/");
-  return {};
-}
-
-export async function updateInvoice(
-  id: string,
-  input: InvoiceInput
+async function saveInvoice(
+  id: string | null,
+  input: InvoiceInput,
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
-
-  const { error } = await supabase
-    .from("invoices")
-    .update({
-      customer_id: input.customerId,
-      vehicle_id: input.vehicleId || null,
-      date: input.invoiceDate,
-      due_date: input.dueDate,
-      vat_rate: input.vatRate,
-      status: input.status,
-      notes: input.notes || null,
-    })
-    .eq("id", id)
-    .eq("garage_id", garageId);
-
+  const { error } = await supabase.rpc("save_workshop_invoice", {
+    p_garage: garageId,
+    p_id: id!,
+    p_input: {
+      ...input,
+      status: input.status ?? "draft",
+      lineItems: input.lineItems.filter((l) => l.description.trim()),
+    },
+  });
   if (error) return { error: error.message };
-
-  const { error: deleteError } = await supabase
-    .from("invoice_line_items")
-    .delete()
-    .eq("invoice_id", id)
-    .eq("garage_id", garageId);
-
-  if (deleteError) return { error: deleteError.message };
-
-  const lineItems = input.lineItems.filter((li) => li.description.trim());
-  if (lineItems.length > 0) {
-    const { error: lineItemsError } = await supabase
-      .from("invoice_line_items")
-      .insert(
-        lineItems.map((li) => ({
-          garage_id: garageId,
-          invoice_id: id,
-          description: li.description,
-          quantity: li.quantity,
-          unit_price: li.unitPrice,
-        }))
-      );
-    if (lineItemsError) return { error: lineItemsError.message };
-  }
-
   revalidatePath("/invoices");
-  revalidatePath(`/invoices/${id}`);
+  if (id) revalidatePath(`/invoices/${id}`);
   revalidatePath("/");
+  revalidatePath("/accounting");
   return {};
 }
+export async function addInvoice(input: InvoiceInput): Promise<MutationResult> {
+  return saveInvoice(null, input);
+}
+export async function updateInvoice(
+  id: string,
+  input: InvoiceInput,
+): Promise<MutationResult> {
+  return saveInvoice(id, input);
+}
 
-export async function convertEstimateToInvoice(id: string): Promise<MutationResult> {
+export async function convertEstimateToInvoice(
+  id: string,
+): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -808,7 +717,7 @@ export async function addPart(input: PartInput): Promise<MutationResult> {
 
 export async function updatePart(
   id: string,
-  input: PartInput
+  input: PartInput,
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -861,7 +770,9 @@ export interface EmployeeInput {
   active: boolean;
 }
 
-export async function addEmployee(input: EmployeeInput): Promise<MutationResult> {
+export async function addEmployee(
+  input: EmployeeInput,
+): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -883,7 +794,7 @@ export async function addEmployee(input: EmployeeInput): Promise<MutationResult>
 
 export async function updateEmployee(
   id: string,
-  input: EmployeeInput
+  input: EmployeeInput,
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -924,6 +835,7 @@ export async function deleteEmployee(id: string): Promise<MutationResult> {
 }
 
 export interface ReminderInput {
+  sendEmail?: boolean;
   customerId?: string;
   vehicleId?: string;
   title: string;
@@ -931,7 +843,9 @@ export interface ReminderInput {
   notes?: string;
 }
 
-export async function addReminder(input: ReminderInput): Promise<MutationResult> {
+export async function addReminder(
+  input: ReminderInput,
+): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -940,6 +854,7 @@ export async function addReminder(input: ReminderInput): Promise<MutationResult>
     customer_id: input.customerId || null,
     vehicle_id: input.vehicleId || null,
     title: input.title,
+    delivery_channel: input.sendEmail ? "email" : "none",
     due_date: input.dueDate,
     notes: input.notes || null,
   });
@@ -953,7 +868,7 @@ export async function addReminder(input: ReminderInput): Promise<MutationResult>
 
 export async function toggleReminderDone(
   id: string,
-  done: boolean
+  done: boolean,
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -1000,7 +915,7 @@ export interface GarageSettingsInput {
 
 export async function updateGarageSettings(
   id: string,
-  input: GarageSettingsInput
+  input: GarageSettingsInput,
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -1029,4 +944,197 @@ export async function updateGarageSettings(
   revalidatePath("/settings");
   revalidatePath("/");
   return {};
+}
+
+export async function updateVehicle(
+  id: string,
+  input: Parameters<typeof addVehicle>[0],
+): Promise<MutationResult> {
+  const registration = input.registration.trim().toUpperCase();
+  if (!registration || registration.length > 20)
+    return { error: "Enter a valid registration." };
+  if (
+    input.year !== undefined &&
+    (!Number.isInteger(input.year) ||
+      input.year < 1886 ||
+      input.year > new Date().getFullYear() + 1)
+  )
+    return { error: "Enter a valid year." };
+  if (
+    input.mileage !== undefined &&
+    (!Number.isInteger(input.mileage) ||
+      input.mileage < 0 ||
+      input.mileage > 2147483647)
+  )
+    return { error: "Enter a valid mileage." };
+  for (const date of [input.motDue, input.lastServiceDate])
+    if (
+      date &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        !Number.isFinite(Date.parse(date)) ||
+        new Date(date).toISOString().slice(0, 10) !== date)
+    )
+      return { error: "Enter a valid date." };
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data, error } = await supabase
+    .from("vehicles")
+    .update({
+      registration,
+      make: input.make?.trim() || null,
+      model: input.model?.trim() || null,
+      colour: input.colour?.trim() || null,
+      year: input.year ?? null,
+      mileage: input.mileage ?? null,
+      mot_due: input.motDue || null,
+      last_service_date: input.lastServiceDate || null,
+    })
+    .eq("id", id)
+    .eq("customer_id", input.customerId)
+    .eq("garage_id", garageId)
+    .select("id")
+    .single();
+  if (error || !data)
+    return { error: error?.message ?? "Vehicle unavailable." };
+  revalidatePath(`/customers/${input.customerId}`);
+  revalidatePath("/customers");
+  revalidatePath("/reminders");
+  return {};
+}
+
+export async function createJobInvoice(
+  jobId: string,
+): Promise<MutationResult & { id?: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("create_invoice_from_job", {
+    p_job: jobId,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/invoices");
+  revalidatePath("/jobs");
+  revalidatePath(`/jobs/${jobId}`);
+  return { id: data };
+}
+export async function assignJobVehicle(
+  jobId: string,
+  vehicleId: string,
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { data: job } = await supabase
+    .from("job_cards")
+    .select("customer_id")
+    .eq("id", jobId)
+    .eq("garage_id", garageId)
+    .single();
+  const { data: vehicle } = await supabase
+    .from("vehicles")
+    .select("id")
+    .eq("id", vehicleId)
+    .eq("customer_id", job?.customer_id ?? "")
+    .eq("garage_id", garageId)
+    .single();
+  if (!job || !vehicle) return { error: "Choose this customer's vehicle." };
+  const { error } = await supabase
+    .from("job_cards")
+    .update({ vehicle_id: vehicle.id })
+    .eq("id", jobId)
+    .eq("garage_id", garageId);
+  if (error) return { error: error.message };
+  revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+export async function recordPayment(
+  invoiceId: string,
+  form: FormData,
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("record_invoice_payment", {
+    p_invoice: invoiceId,
+    p_amount: Number(form.get("amount")),
+    p_date: String(form.get("paidOn")),
+    p_method: String(form.get("method")),
+    p_reference: String(form.get("reference") ?? ""),
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/invoices");
+  revalidatePath("/accounting");
+  revalidatePath("/reports");
+  revalidatePath("/");
+  return {};
+}
+export async function addExpense(form: FormData): Promise<MutationResult> {
+  const amount = Number(form.get("amount")),
+    description = String(form.get("description") ?? "").trim(),
+    date = String(form.get("date") ?? "");
+  if (
+    !description ||
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(date)
+  )
+    return { error: "Enter a description, positive amount and date." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("garage_expenses").insert({
+    garage_id: await getCurrentGarageId(),
+    description,
+    amount,
+    category: String(form.get("category") ?? "other"),
+    spent_on: date,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/accounting");
+  return {};
+}
+export async function saveReminderSettings(
+  form: FormData,
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const days = Number(form.get("days")),
+    months = Number(form.get("months"));
+  if (
+    !Number.isInteger(days) ||
+    days < 0 ||
+    days > 90 ||
+    !Number.isInteger(months) ||
+    months < 1 ||
+    months > 60
+  )
+    return { error: "Choose valid reminder days and service interval." };
+  const { error } = await supabase
+    .from("garage_settings")
+    .update({
+      automatic_reminders: form.get("enabled") === "on",
+      reminder_days_before: days,
+      service_interval_months: months,
+    })
+    .eq("id", await getCurrentGarageId());
+  if (error) return { error: error.message };
+  revalidatePath("/reminders");
+  return {};
+}
+export async function sendDueReminders(): Promise<
+  MutationResult & { message?: string }
+> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+  const { error } = await supabase.rpc("queue_garage_reminders", {
+    p_garage: garageId,
+  });
+  if (error) return { error: error.message };
+  const { data, error: sendError } = await supabase.functions.invoke(
+    "deliver-garage-reminders",
+    { body: { garageId } },
+  );
+  revalidatePath("/reminders");
+  if (sendError)
+    return {
+      error:
+        "Email delivery is not ready. Set RESEND_API_KEY and REMINDER_FROM_EMAIL in Supabase function secrets.",
+    };
+  if (data?.error) return { error: data.error };
+  return {
+    message: `${data.sent ?? 0} reminders sent; ${data.failed ?? 0} failed.`,
+  };
 }

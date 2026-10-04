@@ -1,4 +1,5 @@
 "use client";
+import {usePermission} from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,6 +16,7 @@ export function JobTechnicianSelect({
   technician: string | null;
   employees: Employee[];
 }) {
+  const can=usePermission();
   const router = useRouter();
   const [current, setCurrent] = useState(technician ?? "");
   const [saving, setSaving] = useState(false);
@@ -44,7 +46,7 @@ export function JobTechnicianSelect({
       <div className="relative inline-block">
         <select
           value={current}
-          disabled={saving}
+          disabled={saving || !can("jobs.manage","jobs.update")}
           onChange={(e) => handleChange(e.target.value)}
           className="appearance-none rounded-lg border border-slate-200 bg-white py-1 pl-2 pr-7 text-sm text-slate-700 transition-colors focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/20 disabled:opacity-60"
         >

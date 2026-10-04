@@ -8,8 +8,6 @@ import {
   type TeamActionResult,
   type TeamManagementData,
   type TeamRole,
-  type TeamMember,
-  type TeamInvite,
 } from "@/lib/team-roles";
 
 async function getContext() {
@@ -21,7 +19,7 @@ async function getContext() {
 
   if (!user) throw new Error("Not signed in.");
 
-  const db = supabase as any;
+  const db = supabase;
   const { data: membership } = await db
     .from("garage_members")
     .select("role")
@@ -43,7 +41,7 @@ export async function getTeamManagementData(): Promise<TeamManagementData> {
     .order("is_system", { ascending: false })
     .order("name");
 
-  const roles: TeamRole[] = (roleRows ?? []).map((role: any) => ({
+  const roles: TeamRole[] = (roleRows ?? []).map((role) => ({
     id: role.id,
     name: role.name,
     slug: role.slug,
@@ -73,14 +71,14 @@ export async function getTeamManagementData(): Promise<TeamManagementData> {
   return {
     canManage,
     roles,
-    members: (memberRows ?? []).map((member: any) => ({
+    members: (memberRows ?? []).map((member) => ({
       id: member.id,
       userId: member.user_id,
       email: member.email ?? "Unknown user",
       roleId: member.role_id,
       role: member.role,
     })),
-    invites: (inviteRows ?? []).map((invite: any) => ({
+    invites: (inviteRows ?? []).map((invite) => ({
       id: invite.id,
       email: invite.email,
       roleId: invite.role_id,
@@ -100,8 +98,8 @@ function slugifyRole(name: string) {
 }
 
 function validatePermissions(permissions: string[]) {
-  const allowed = new Set(TEAM_PERMISSIONS.map((permission) => permission.key));
-  return [...new Set(permissions.filter((permission) => allowed.has(permission as any)))];
+  const allowed = new Set<string>(TEAM_PERMISSIONS.map((permission) => permission.key));
+  return [...new Set(permissions.filter((permission) => allowed.has(permission)))];
 }
 
 export async function createTeamRole(input: {

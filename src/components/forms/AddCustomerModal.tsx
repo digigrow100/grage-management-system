@@ -1,4 +1,5 @@
 "use client";
+import {usePermission} from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,7 @@ import { FieldGroup, FieldSection, TextInput } from "@/components/ui/Field";
 import { addCustomer } from "@/lib/supabase/mutations";
 
 export function AddCustomerButton() {
+  const can = usePermission();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +52,7 @@ export function AddCustomerButton() {
     router.refresh();
   }
 
+  if (!can('customers.manage')) return null;
   return (
     <>
       <button

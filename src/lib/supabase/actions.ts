@@ -23,7 +23,7 @@ export async function signIn(
     return { error: error.message };
   }
 
-  redirect(next || "/");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
 }
 
 export async function signUp(

@@ -1,4 +1,5 @@
 "use client";
+import {usePermission} from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,6 +18,7 @@ import { FieldGroup, TextInput } from "@/components/ui/Field";
 import { addPart } from "@/lib/supabase/mutations";
 
 export function AddPartButton() {
+  const can = usePermission();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +52,7 @@ export function AddPartButton() {
     router.refresh();
   }
 
+  if (!can('inventory.manage')) return null;
   return (
     <>
       <button

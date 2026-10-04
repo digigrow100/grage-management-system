@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRightLeft, Download, Loader2 } from "lucide-react";
+import { PaymentPanel } from "@/components/workflows/WorkflowForms";
+import { usePermission } from "@/components/layout/PermissionContext";
 import { InvoicePaper, A4_WIDTH_PX, A4_HEIGHT_PX } from "./InvoicePaper";
 import { EditInvoiceButton } from "@/components/forms/EditInvoiceModal";
 import { DeleteButton } from "@/components/ui/DeleteButton";
@@ -30,6 +32,8 @@ export function InvoiceView({
   garage,
 }: InvoiceViewProps) {
   const router = useRouter();
+  const can = usePermission();
+  const editable = can("invoices.manage") && invoice.status !== "paid" && invoice.payments.length === 0;
   const containerRef = useRef<HTMLDivElement>(null);
   const paperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number | null>(null);
@@ -110,15 +114,15 @@ export function InvoiceView({
           <ArrowLeft size={15} /> Back to invoices
         </Link>
         <div className="flex items-center gap-2">
-          <EditInvoiceButton invoice={invoice} customers={customers} vehicles={vehicles} />
-          <DeleteButton
+          {editable ? <EditInvoiceButton invoice={invoice} customers={customers} vehicles={vehicles} /> : null}
+          {editable ? <DeleteButton
             id={invoice.id}
             action={deleteInvoice}
             label={`Delete ${invoice.number}`}
             confirmMessage={`Delete invoice ${invoice.number}? This cannot be undone.`}
             redirectTo="/invoices"
-          />
-          {invoice.status === "estimate" ? (
+          /> : null}
+          {invoice.status === "estimate" && can("invoices.manage") ? (
             <button
               type="button"
               onClick={handleConvert}
@@ -155,6 +159,7 @@ export function InvoiceView({
         </p>
       ) : null}
 
+      <PaymentPanel invoice={invoice} />
       <div ref={containerRef} className="w-full">
         {scale === null ? (
           <div

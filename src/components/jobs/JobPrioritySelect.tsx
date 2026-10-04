@@ -1,4 +1,5 @@
 "use client";
+import {usePermission} from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -20,6 +21,7 @@ export function JobPrioritySelect({
   jobId: string;
   priority: JobPriority;
 }) {
+  const can=usePermission();
   const router = useRouter();
   const [current, setCurrent] = useState(priority);
   const [saving, setSaving] = useState(false);
@@ -48,7 +50,7 @@ export function JobPrioritySelect({
       <div className="relative inline-block">
         <select
           value={current}
-          disabled={saving}
+          disabled={saving || !can("jobs.manage","jobs.update")}
           onChange={(e) => handleChange(e.target.value as JobPriority)}
           className={`appearance-none rounded-full border py-1 pl-3 pr-8 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500/30 disabled:opacity-60 ${priorityRingColor[current]}`}
         >

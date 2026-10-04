@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Car, X } from "lucide-react";
+import { usePermission } from "./PermissionContext";
 import { cn } from "@/lib/cn";
 import { groupedNavItems } from "@/lib/nav-items";
 import { useNavDrawer } from "./NavDrawerContext";
@@ -12,7 +13,8 @@ import { useNavDrawer } from "./NavDrawerContext";
 export function MobileNavDrawer() {
   const { isOpen, close } = useNavDrawer();
   const pathname = usePathname();
-  const groups = groupedNavItems();
+  const can = usePermission();
+  const groups = groupedNavItems(can);
 
   useEffect(() => {
     close();
@@ -44,7 +46,7 @@ export function MobileNavDrawer() {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">My Garage CRM</p>
-              <p className="text-xs text-slate-400">MVP Console</p>
+              <p className="text-xs text-slate-400">Workshop console</p>
             </div>
           </div>
           <button
@@ -88,7 +90,7 @@ export function MobileNavDrawer() {
         </nav>
         <div className="border-t border-white/10 px-5 py-4">
           <p className="text-xs text-slate-500">
-            Frontend MVP &middot; Supabase not yet connected
+            Your garage workspace
           </p>
         </div>
       </div>

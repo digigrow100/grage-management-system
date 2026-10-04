@@ -1,4 +1,5 @@
 "use client";
+import { usePermission } from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,6 +23,7 @@ interface DraftPartLine {
   description: string;
   quantity: number;
   unitPrice: number;
+  costPrice: number;
 }
 
 let lineSeq = 0;
@@ -31,18 +33,37 @@ function newLabourLine(): DraftLabourLine {
 }
 function newPartLine(): DraftPartLine {
   lineSeq += 1;
-  return { id: `dp_${lineSeq}`, partId: null, description: "", quantity: 1, unitPrice: 0 };
+  return {
+    id: `dp_${lineSeq}`,
+    partId: null,
+    description: "",
+    quantity: 1,
+    unitPrice: 0,
+    costPrice: 0,
+  };
 }
 
-export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[] }) {
+export function EditJobLinesButton({
+  job,
+  parts,
+}: {
+  job: JobCard;
+  parts: Part[];
+}) {
+  const can = usePermission();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [labourLines, setLabourLines] = useState<DraftLabourLine[]>(
     job.labourLines.length > 0
-      ? job.labourLines.map((l) => ({ id: l.id, description: l.description, hours: l.hours, rate: l.rate }))
-      : [newLabourLine()]
+      ? job.labourLines.map((l) => ({
+          id: l.id,
+          description: l.description,
+          hours: l.hours,
+          rate: l.rate,
+        }))
+      : [newLabourLine()],
   );
   const [partLines, setPartLines] = useState<DraftPartLine[]>(
     job.partLines.map((l) => ({
@@ -51,20 +72,27 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
       description: l.description,
       quantity: l.quantity,
       unitPrice: l.unitPrice,
-    }))
+      costPrice: l.costPrice,
+    })),
   );
 
   const partById = new Map(parts.map((p) => [p.id, p]));
 
   function updateLabourLine(id: string, patch: Partial<DraftLabourLine>) {
-    setLabourLines((lines) => lines.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+    setLabourLines((lines) =>
+      lines.map((l) => (l.id === id ? { ...l, ...patch } : l)),
+    );
   }
   function removeLabourLine(id: string) {
-    setLabourLines((lines) => (lines.length > 1 ? lines.filter((l) => l.id !== id) : lines));
+    setLabourLines((lines) =>
+      lines.length > 1 ? lines.filter((l) => l.id !== id) : lines,
+    );
   }
 
   function updatePartLine(id: string, patch: Partial<DraftPartLine>) {
-    setPartLines((lines) => lines.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+    setPartLines((lines) =>
+      lines.map((l) => (l.id === id ? { ...l, ...patch } : l)),
+    );
   }
   function removePartLine(id: string) {
     setPartLines((lines) => lines.filter((l) => l.id !== id));
@@ -75,6 +103,7 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
       partId: partId || null,
       description: part ? part.name : "",
       unitPrice: part ? part.sellPrice : 0,
+      costPrice: part ? part.costPrice : 0,
     });
   }
 
@@ -84,13 +113,20 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
     setError(null);
 
     const result = await updateJobLines(job.id, {
-      labourLines: labourLines.map(({ description, hours, rate }) => ({ description, hours, rate })),
-      partLines: partLines.map(({ partId, description, quantity, unitPrice }) => ({
-        partId,
+      labourLines: labourLines.map(({ description, hours, rate }) => ({
         description,
-        quantity,
-        unitPrice,
+        hours,
+        rate,
       })),
+      partLines: partLines.map(
+        ({ partId, description, quantity, unitPrice, costPrice }) => ({
+          partId,
+          description,
+          quantity,
+          unitPrice,
+          costPrice,
+        }),
+      ),
     });
 
     setSubmitting(false);
@@ -104,6 +140,7 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
     router.refresh();
   }
 
+  if (!can("jobs.manage", "jobs.update")) return null;
   return (
     <>
       <button
@@ -125,10 +162,14 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
             <div className="mb-2.5 flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-700">Labour lines</label>
+              <label className="text-sm font-medium text-slate-700">
+                Labour lines
+              </label>
               <button
                 type="button"
-                onClick={() => setLabourLines((lines) => [...lines, newLabourLine()])}
+                onClick={() =>
+                  setLabourLines((lines) => [...lines, newLabourLine()])
+                }
                 className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-accent-600 transition-colors hover:bg-accent-50"
               >
                 <Plus size={14} /> Add labour
@@ -145,7 +186,11 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
                       aria-label="Description"
                       placeholder="Description"
                       value={line.description}
-                      onChange={(e) => updateLabourLine(line.id, { description: e.target.value })}
+                      onChange={(e) =>
+                        updateLabourLine(line.id, {
+                          description: e.target.value,
+                        })
+                      }
                       required
                     />
                   </div>
@@ -157,7 +202,11 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
                       min="0"
                       step="0.25"
                       value={line.hours}
-                      onChange={(e) => updateLabourLine(line.id, { hours: Number(e.target.value) || 0 })}
+                      onChange={(e) =>
+                        updateLabourLine(line.id, {
+                          hours: Number(e.target.value) || 0,
+                        })
+                      }
                     />
                   </div>
                   <div className="col-span-5 sm:col-span-3">
@@ -168,7 +217,11 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
                       step="0.01"
                       placeholder="Rate/hr"
                       value={line.rate}
-                      onChange={(e) => updateLabourLine(line.id, { rate: Number(e.target.value) || 0 })}
+                      onChange={(e) =>
+                        updateLabourLine(line.id, {
+                          rate: Number(e.target.value) || 0,
+                        })
+                      }
                     />
                   </div>
                   <div className="col-span-2 sm:col-span-1 flex justify-end">
@@ -188,10 +241,14 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
 
           <div>
             <div className="mb-2.5 flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-700">Parts used</label>
+              <label className="text-sm font-medium text-slate-700">
+                Parts used
+              </label>
               <button
                 type="button"
-                onClick={() => setPartLines((lines) => [...lines, newPartLine()])}
+                onClick={() =>
+                  setPartLines((lines) => [...lines, newPartLine()])
+                }
                 className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-accent-600 transition-colors hover:bg-accent-50"
               >
                 <Plus size={14} /> Add part
@@ -222,7 +279,9 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
                       aria-label="Description"
                       placeholder="Description"
                       value={line.description}
-                      onChange={(e) => updatePartLine(line.id, { description: e.target.value })}
+                      onChange={(e) =>
+                        updatePartLine(line.id, { description: e.target.value })
+                      }
                       required
                     />
                   </div>
@@ -233,7 +292,11 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
                       min="1"
                       step="1"
                       value={line.quantity}
-                      onChange={(e) => updatePartLine(line.id, { quantity: Number(e.target.value) || 1 })}
+                      onChange={(e) =>
+                        updatePartLine(line.id, {
+                          quantity: Number(e.target.value) || 1,
+                        })
+                      }
                     />
                   </div>
                   <div className="col-span-6 sm:col-span-2">
@@ -244,7 +307,29 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
                       step="0.01"
                       placeholder="Unit price"
                       value={line.unitPrice}
-                      onChange={(e) => updatePartLine(line.id, { unitPrice: Number(e.target.value) || 0 })}
+                      onChange={(e) =>
+                        updatePartLine(line.id, {
+                          unitPrice: Number(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="col-span-6 sm:col-span-2">
+                    <label className="text-xs text-slate-500">
+                      Unit cost (£)
+                    </label>
+                    <TextInput
+                      aria-label="Unit cost"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={line.costPrice}
+                      disabled={Boolean(line.partId)}
+                      onChange={(e) =>
+                        updatePartLine(line.id, {
+                          costPrice: Number(e.target.value) || 0,
+                        })
+                      }
                     />
                   </div>
                   <div className="col-span-2 sm:col-span-1 flex justify-end">
@@ -269,16 +354,29 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-sm">
             <div className="flex justify-between text-slate-500">
               <span>Labour total</span>
-              <span>{formatCurrency(labourLines.reduce((sum, l) => sum + l.hours * l.rate, 0))}</span>
+              <span>
+                {formatCurrency(
+                  labourLines.reduce((sum, l) => sum + l.hours * l.rate, 0),
+                )}
+              </span>
             </div>
             <div className="flex justify-between text-slate-500">
               <span>Parts total</span>
-              <span>{formatCurrency(partLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0))}</span>
+              <span>
+                {formatCurrency(
+                  partLines.reduce(
+                    (sum, l) => sum + l.quantity * l.unitPrice,
+                    0,
+                  ),
+                )}
+              </span>
             </div>
           </div>
 
           {error ? (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </p>
           ) : null}
 
           <div className="sticky bottom-0 -mx-6 -mb-6 flex justify-end gap-3 border-t border-slate-100 bg-white px-6 py-4">

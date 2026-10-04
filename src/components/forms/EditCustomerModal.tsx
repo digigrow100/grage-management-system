@@ -1,4 +1,5 @@
 "use client";
+import {usePermission} from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -9,6 +10,7 @@ import { updateCustomer } from "@/lib/supabase/mutations";
 import type { Customer } from "@/lib/types";
 
 export function EditCustomerButton({ customer }: { customer: Customer }) {
+  const can = usePermission();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -21,6 +23,7 @@ export function EditCustomerButton({ customer }: { customer: Customer }) {
 
     const formData = new FormData(e.currentTarget);
     const result = await updateCustomer(customer.id, {
+      emailOptIn: formData.get("emailOptIn") === "on",
       fullName: String(formData.get("fullName") ?? ""),
       email: String(formData.get("email") ?? ""),
       phone: String(formData.get("phone") ?? ""),
@@ -41,6 +44,7 @@ export function EditCustomerButton({ customer }: { customer: Customer }) {
     router.refresh();
   }
 
+  if (!can('customers.manage')) return null;
   return (
     <>
       <button
@@ -137,6 +141,7 @@ export function EditCustomerButton({ customer }: { customer: Customer }) {
             />
           </FieldGroup>
 
+          <label className="flex items-center gap-2 text-sm"><input name="emailOptIn" type="checkbox" defaultChecked={customer.emailOptIn}/>Customer allows service reminder emails</label>
           {error ? (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {error}

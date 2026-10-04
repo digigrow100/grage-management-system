@@ -1,9 +1,11 @@
+import { JobInvoiceButton, JobVehiclePicker } from "@/components/workflows/WorkflowForms";
+import { requirePermission } from "@/lib/supabase/permissions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { getCustomer, getEmployees, getJob, getParts, getVehicle } from "@/lib/supabase/queries";
+import { getCustomer, getVehiclesForCustomer, getEmployees, getJob, getParts, getVehicle } from "@/lib/supabase/queries";
 import { deleteJobCard } from "@/lib/supabase/mutations";
 import { jobLineTotal } from "@/lib/totals";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -18,6 +20,7 @@ export default async function JobDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePermission("jobs.manage","jobs.view","jobs.update");
   const { id } = await params;
   const job = await getJob(id);
   if (!job) notFound();
@@ -29,6 +32,7 @@ export default async function JobDetailPage({
     getParts(),
   ]);
   const activeEmployees = employees.filter((e) => e.active);
+  const customerVehicles = await getVehiclesForCustomer(job.customerId);
   const { labour, partsTotal, total } = jobLineTotal(job);
 
   return (
@@ -45,6 +49,7 @@ export default async function JobDetailPage({
           >
             <ArrowLeft size={15} /> Back to job board
           </Link>
+          <JobInvoiceButton jobId={job.id} />
           <DeleteButton
             id={job.id}
             action={deleteJobCard}
@@ -67,6 +72,7 @@ export default async function JobDetailPage({
                 </Link>
               </p>
               <p className="text-slate-500">{customer?.phone}</p>
+              {!job.invoiceId ? <JobVehiclePicker jobId={job.id} vehicles={customerVehicles} /> : null}
               <div className="mt-3 border-t border-slate-100 pt-3">
                 <p className="font-medium text-slate-900">
                   {vehicle?.registration ?? "No vehicle assigned"}
@@ -143,7 +149,7 @@ export default async function JobDetailPage({
         <Card>
           <CardHeader
             title="Labour lines"
-            action={<EditJobLinesButton job={job} parts={parts} />}
+            action={job.invoiceId ? undefined : <EditJobLinesButton job={job} parts={parts} />}
           />
           <CardBody className="p-0">
             <div className="overflow-x-auto">

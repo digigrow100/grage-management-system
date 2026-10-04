@@ -21,6 +21,7 @@ export function AddReminderButton({ customers }: { customers: Customer[] }) {
 
     const formData = new FormData(e.currentTarget);
     const result = await addReminder({
+      sendEmail: formData.get("sendEmail") === "on",
       title: String(formData.get("title") ?? ""),
       dueDate: String(formData.get("dueDate") ?? ""),
       customerId: String(formData.get("customer") ?? "") || undefined,
@@ -90,6 +91,8 @@ export function AddReminderButton({ customers }: { customers: Customer[] }) {
               <TextArea id="notes" name="notes" rows={3} className="pl-9" placeholder="Any extra context..." />
             </div>
           </FieldGroup>
+
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="sendEmail" />Email this reminder when due (requires linked customer with email consent)</label>
 
           {error ? (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>

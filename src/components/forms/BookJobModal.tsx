@@ -1,4 +1,5 @@
 "use client";
+import { usePermission } from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -27,25 +28,38 @@ import {
   type ServiceFieldValues,
   type StorageFormValues,
 } from "@/lib/service-fields";
-import type { Customer, Employee, JobPriority, JobType } from "@/lib/types";
+import type {
+  Customer,
+  Employee,
+  Vehicle,
+  JobPriority,
+  JobType,
+} from "@/lib/types";
 
 export function BookJobButton({
   customers,
   employees,
+  vehicles,
 }: {
   customers: Customer[];
   employees: Employee[];
+  vehicles: Vehicle[];
 }) {
+  const can = usePermission();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const activeEmployees = employees.filter((e) => e.active);
 
+  const [customerId, setCustomerId] = useState("");
+  const [vehicleId, setVehicleId] = useState("");
+  const customerVehicles = vehicles.filter((v) => v.customerId === customerId);
   const [jobType, setJobType] = useState<JobType | "">("");
   const [estPrice, setEstPrice] = useState("");
   const [serviceValues, setServiceValues] = useState<ServiceFieldValues>({});
-  const [storageValues, setStorageValues] = useState<StorageFormValues>(EMPTY_STORAGE_VALUES);
+  const [storageValues, setStorageValues] =
+    useState<StorageFormValues>(EMPTY_STORAGE_VALUES);
 
   const storageError =
     jobType === "vehicle_storage" &&
@@ -85,6 +99,8 @@ export function BookJobButton({
   }
 
   function resetForm() {
+    setCustomerId("");
+    setVehicleId("");
     setJobType("");
     setEstPrice("");
     setServiceValues({});
@@ -109,9 +125,16 @@ export function BookJobButton({
     setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const serviceDetails = buildServiceDetails(jobType, serviceValues, storageValues);
+    const serviceDetails = buildServiceDetails(
+      jobType,
+      serviceValues,
+      storageValues,
+    );
     const result = await addBooking({
-      customerId: String(formData.get("customer") ?? ""),
+      customerId,
+      vehicleId,
+      time: String(formData.get("time") ?? ""),
+      durationMinutes: Number(formData.get("duration") ?? 60),
       jobType: jobType as JobType,
       date: String(formData.get("date") ?? ""),
       estPrice: estPrice ? Number(estPrice) : undefined,
@@ -134,6 +157,7 @@ export function BookJobButton({
     router.refresh();
   }
 
+  if (!can("bookings.manage")) return null;
   return (
     <>
       <button
@@ -154,7 +178,17 @@ export function BookJobButton({
       >
         <form className="space-y-5" onSubmit={handleSubmit}>
           <FieldGroup label="Customer" htmlFor="customer" required>
-            <Select id="customer" name="customer" icon={User} required defaultValue="">
+            <Select
+              id="customer"
+              name="customer"
+              icon={User}
+              required
+              value={customerId}
+              onChange={(e) => {
+                setCustomerId(e.target.value);
+                setVehicleId("");
+              }}
+            >
               <option value="" disabled>
                 Select a customer
               </option>
@@ -166,6 +200,57 @@ export function BookJobButton({
             </Select>
           </FieldGroup>
 
+          <FieldGroup label="Vehicle" htmlFor="booking-vehicle" required>
+            <Select
+              id="booking-vehicle"
+              name="vehicle"
+              required
+              value={vehicleId}
+              onChange={(e) => setVehicleId(e.target.value)}
+            >
+              <option value="">
+                {customerId
+                  ? "Select this customer&apos;s vehicle"
+                  : "Select a customer first"}
+              </option>
+              {customerVehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.registration} —{" "}
+                  {[v.make, v.model].filter(Boolean).join(" ")}
+                </option>
+              ))}
+            </Select>
+            {customerId && customerVehicles.length === 0 ? (
+              <p className="mt-2 text-xs text-amber-700">
+                Add a vehicle from this customer&apos;s details page first.
+              </p>
+            ) : null}
+          </FieldGroup>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FieldGroup
+              label="Start time (garage local time)"
+              htmlFor="booking-time"
+              required
+            >
+              <TextInput id="booking-time" name="time" type="time" required />
+            </FieldGroup>
+            <FieldGroup
+              label="Duration (minutes)"
+              htmlFor="booking-duration"
+              required
+            >
+              <TextInput
+                id="booking-duration"
+                name="duration"
+                type="number"
+                min={1}
+                max={1440}
+                step={1}
+                defaultValue={60}
+                required
+              />
+            </FieldGroup>
+          </div>
           <FieldGroup label="Job Type" htmlFor="jobType" required>
             <Select
               id="jobType"
@@ -199,7 +284,13 @@ export function BookJobButton({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldGroup label="Date" htmlFor="date" required>
-              <TextInput id="date" name="date" type="date" icon={CalendarClock} required />
+              <TextInput
+                id="date"
+                name="date"
+                type="date"
+                icon={CalendarClock}
+                required
+              />
             </FieldGroup>
 
             <FieldGroup label="Est. Price (£)" htmlFor="estPrice">
@@ -219,7 +310,12 @@ export function BookJobButton({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldGroup label="Priority" htmlFor="priority">
-              <Select id="priority" name="priority" icon={Flag} defaultValue="medium">
+              <Select
+                id="priority"
+                name="priority"
+                icon={Flag}
+                defaultValue="medium"
+              >
                 {JOB_PRIORITIES.map((p) => (
                   <option key={p} value={p}>
                     {JOB_PRIORITY_LABELS[p]}
@@ -229,7 +325,12 @@ export function BookJobButton({
             </FieldGroup>
 
             <FieldGroup label="Technician" htmlFor="technician">
-              <Select id="technician" name="technician" icon={Wrench} defaultValue="">
+              <Select
+                id="technician"
+                name="technician"
+                icon={Wrench}
+                defaultValue=""
+              >
                 <option value="">Unassigned</option>
                 {activeEmployees.map((e) => (
                   <option key={e.id} value={e.fullName}>
@@ -241,12 +342,20 @@ export function BookJobButton({
           </div>
 
           <FieldGroup label="Bay" htmlFor="bay">
-            <TextInput id="bay" name="bay" icon={DoorOpen} placeholder="e.g. Bay 2" />
+            <TextInput
+              id="bay"
+              name="bay"
+              icon={DoorOpen}
+              placeholder="e.g. Bay 2"
+            />
           </FieldGroup>
 
           <FieldGroup label="Notes" htmlFor="notes">
             <div className="relative">
-              <FileText size={16} className="pointer-events-none absolute left-3 top-3 text-slate-400" />
+              <FileText
+                size={16}
+                className="pointer-events-none absolute left-3 top-3 text-slate-400"
+              />
               <TextArea
                 id="notes"
                 name="notes"

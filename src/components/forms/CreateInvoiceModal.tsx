@@ -1,4 +1,5 @@
 "use client";
+import {usePermission} from "@/components/layout/PermissionContext";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -46,6 +47,7 @@ export function CreateInvoiceButton({
   defaultVatRate?: number;
 }) {
   const isEstimate = mode === "estimate";
+  const can = usePermission();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [customerId, setCustomerId] = useState("");
@@ -114,6 +116,7 @@ export function CreateInvoiceButton({
     router.refresh();
   }
 
+  if (!can('invoices.manage')) return null;
   return (
     <>
       <button

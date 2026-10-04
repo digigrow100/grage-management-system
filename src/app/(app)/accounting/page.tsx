@@ -1,138 +1,126 @@
+import { requirePermission } from "@/lib/supabase/permissions";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentGarageId } from "@/lib/supabase/garage";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
-import { getInvoices, getJobCards, getParts } from "@/lib/supabase/queries";
-import { invoiceTotals } from "@/lib/totals";
+import { ExpenseButton } from "@/components/workflows/WorkflowForms";
+import { getInvoices, getJobCards } from "@/lib/supabase/queries";
+import { accountingTotals } from "@/lib/totals";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { PoundSterling, Receipt, TrendingDown, TrendingUp } from "lucide-react";
-
 export default async function AccountingPage() {
-  const [invoices, jobCards, parts] = await Promise.all([
+  await requirePermission("accounting.manage");
+  const supabase = await createClient(),
+    garage = await getCurrentGarageId();
+  const [invoices, jobs, result] = await Promise.all([
     getInvoices(),
     getJobCards(),
-    getParts(),
+    supabase
+      .from("garage_expenses")
+      .select("*")
+      .eq("garage_id", garage)
+      .order("spent_on", { ascending: false }),
   ]);
-
-  const partById = new Map(parts.map((p) => [p.id, p]));
-
-  const paidInvoices = invoices.filter((i) => i.status === "paid");
-  const revenue = paidInvoices.reduce((sum, inv) => sum + invoiceTotals(inv).total, 0);
-  const vatCollected = paidInvoices.reduce((sum, inv) => sum + invoiceTotals(inv).vat, 0);
-  const outstanding = invoices
-    .filter((i) => i.status === "sent" || i.status === "overdue")
-    .reduce((sum, inv) => sum + invoiceTotals(inv).total, 0);
-
-  // Cost of parts used, restricted to jobs whose linked invoice is paid —
-  // matching costs to the same revenue being recognized above. Parts on
-  // jobs that aren't invoiced (or invoiced but unpaid) don't reduce margin
-  // yet, since that revenue isn't counted either.
-  const paidJobIds = new Set(
-    paidInvoices.map((inv) => inv.jobId).filter((id): id is string => Boolean(id))
-  );
-  const costOfPartsUsed = jobCards
-    .filter((job) => paidJobIds.has(job.id))
-    .reduce((sum, job) => {
-      return (
-        sum +
-        job.partLines.reduce((lineSum, line) => {
-          const cost = line.partId ? partById.get(line.partId)?.costPrice ?? 0 : 0;
-          return lineSum + cost * line.quantity;
-        }, 0)
-      );
-    }, 0);
-
-  const grossProfit = revenue - costOfPartsUsed;
-  const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
-
-  const recentPaid = [...paidInvoices]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 10);
-
+  if (result.error) throw new Error("Could not load expenses.");
+  const expenses = result.data ?? [],
+    t = accountingTotals(
+      invoices,
+      jobs,
+      expenses.reduce((s, e) => s + e.amount, 0),
+    );
   return (
     <>
-      <TopBar title="Accounting" subtitle="Revenue, VAT, and gross margin overview" />
+      <TopBar title="Accounting" subtitle="Cash-basis profit, excluding VAT" />
       <main className="flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex justify-end">
+          <ExpenseButton />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="Revenue (paid)"
-            value={formatCurrency(revenue)}
+            label="Revenue excluding VAT"
+            value={formatCurrency(t.revenue)}
             icon={PoundSterling}
             tone="green"
           />
           <StatCard
             label="VAT collected"
-            value={formatCurrency(vatCollected)}
+            value={formatCurrency(t.vat)}
             icon={Receipt}
             tone="blue"
           />
           <StatCard
             label="Outstanding"
-            value={formatCurrency(outstanding)}
+            value={formatCurrency(t.outstanding)}
             icon={TrendingDown}
             tone="amber"
           />
           <StatCard
-            label="Gross profit"
-            value={formatCurrency(grossProfit)}
+            label="Net profit"
+            value={formatCurrency(t.netProfit)}
             icon={TrendingUp}
             tone="green"
-            hint={`${grossMargin.toFixed(0)}% margin`}
           />
         </div>
-
         <Card>
-          <CardHeader title="Cost of parts used" subtitle="Jobs linked to paid invoices only" />
-          <CardBody className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Revenue (paid)</span>
-              <span className="font-medium">{formatCurrency(revenue)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Cost of parts used</span>
-              <span className="font-medium text-rose-600">-{formatCurrency(costOfPartsUsed)}</span>
-            </div>
-            <div className="flex justify-between border-t border-slate-100 pt-2 font-semibold text-slate-900">
-              <span>Gross profit</span>
-              <span>{formatCurrency(grossProfit)}</span>
-            </div>
+          <CardHeader
+            title="Profit calculation"
+            subtitle="Part costs are captured when used. Partial payments recognise the same share of revenue and part costs."
+          />
+          <CardBody className="space-y-3 text-sm">
+            {[
+              ["Revenue excluding VAT", t.revenue],
+              ["Parts cost", -t.partsCost],
+              ["Gross profit", t.grossProfit],
+              ["Operating expenses", -t.expenses],
+              ["Net profit", t.netProfit],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="flex justify-between">
+                <span>{label}</span>
+                <strong>{formatCurrency(Number(value))}</strong>
+              </div>
+            ))}
+            <p className="text-xs text-slate-500">
+              Historical jobs use the part cost available when payment tracking
+              was introduced. Unlinked manual invoices have no recorded job-part
+              cost.
+            </p>
           </CardBody>
         </Card>
-
         <Card>
-          <CardHeader title="Recent paid invoices" />
-          <CardBody className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs text-slate-500">
-                    <th className="px-5 py-2 font-medium">Number</th>
-                    <th className="px-5 py-2 font-medium">Date</th>
-                    <th className="px-5 py-2 font-medium">VAT</th>
-                    <th className="px-5 py-2 text-right font-medium">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentPaid.map((inv) => {
-                    const { vat, total } = invoiceTotals(inv);
-                    return (
-                      <tr key={inv.id} className="border-b border-slate-50 last:border-0">
-                        <td className="px-5 py-3 font-medium text-slate-900">{inv.number}</td>
-                        <td className="px-5 py-3 text-slate-500">{formatDate(inv.date)}</td>
-                        <td className="px-5 py-3 text-slate-500">{formatCurrency(vat)}</td>
-                        <td className="px-5 py-3 text-right font-medium">{formatCurrency(total)}</td>
-                      </tr>
-                    );
-                  })}
-                  {recentPaid.length === 0 ? (
+          <CardHeader
+            title="Operating expenses"
+            subtitle="Amounts excluding recoverable VAT"
+          />
+          <CardBody>
+            {expenses.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
                     <tr>
-                      <td colSpan={4} className="px-5 py-6 text-center text-sm text-slate-400">
-                        No paid invoices yet.
-                      </td>
+                      <th className="py-2">Date</th>
+                      <th>Description</th>
+                      <th>Category</th>
+                      <th className="text-right">Amount</th>
                     </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {expenses.map((e) => (
+                      <tr key={e.id} className="border-t border-slate-100">
+                        <td className="py-3">{formatDate(e.spent_on)}</td>
+                        <td>{e.description}</td>
+                        <td>{e.category}</td>
+                        <td className="text-right">
+                          {formatCurrency(e.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">No expenses recorded.</p>
+            )}
           </CardBody>
         </Card>
       </main>

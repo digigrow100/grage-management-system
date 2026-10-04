@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/supabase/permissions";
 import { TopBar } from "@/components/layout/TopBar";
 import {
   getBookings,
@@ -8,6 +9,7 @@ import {
 import { JobsBoard } from "@/components/jobs/JobsBoard";
 
 export default async function JobsPage() {
+  await requirePermission("jobs.manage", "jobs.view", "jobs.update");
   const [jobCards, customers, vehicles, bookings] = await Promise.all([
     getJobCards(),
     getCustomers(),

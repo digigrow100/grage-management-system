@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Car } from "lucide-react";
+import { usePermission } from "./PermissionContext";
 import { cn } from "@/lib/cn";
 import { groupedNavItems } from "@/lib/nav-items";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const groups = groupedNavItems();
+  const can = usePermission();
+  const groups = groupedNavItems(can);
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col bg-brand-950 md:flex">
@@ -18,7 +20,7 @@ export function Sidebar() {
         </div>
         <div>
           <p className="text-sm font-semibold text-white">My Garage CRM</p>
-          <p className="text-xs text-slate-400">MVP Console</p>
+          <p className="text-xs text-slate-400">Workshop console</p>
         </div>
       </div>
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 pb-4">
@@ -55,7 +57,7 @@ export function Sidebar() {
       </nav>
       <div className="border-t border-white/10 px-5 py-4">
         <p className="text-xs text-slate-500">
-          Frontend MVP &middot; Supabase not yet connected
+          Your garage workspace
         </p>
       </div>
     </aside>

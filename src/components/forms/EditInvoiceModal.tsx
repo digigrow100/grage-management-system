@@ -32,7 +32,7 @@ function newLineItem(): DraftLineItem {
   return { id: `draft_${lineItemSeq}`, description: "", quantity: 1, unitPrice: 0 };
 }
 
-const STATUS_OPTIONS: InvoiceStatus[] = ["estimate", "draft", "sent", "paid", "overdue"];
+const STATUS_OPTIONS: InvoiceStatus[] = ["estimate", "draft", "sent", "overdue"];
 
 export function EditInvoiceButton({
   invoice,

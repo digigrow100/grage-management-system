@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { usePermission } from "@/components/layout/PermissionContext";
+import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -12,13 +14,27 @@ export function DeleteButton<T>({
   confirmMessage,
   label,
   redirectTo,
+  allowed = true,
 }: {
   id: T;
   action: (id: T) => Promise<MutationResult>;
   confirmMessage: string;
   label?: string;
   redirectTo?: string;
+  allowed?: boolean;
 }) {
+  const can = usePermission(),
+    pathname = usePathname();
+  const resource = (
+    {
+      customers: "customers",
+      jobs: "jobs",
+      invoices: "invoices",
+      inventory: "inventory",
+      employees: "employees",
+      reminders: "reminders",
+    } as Record<string, string>
+  )[pathname.split("/")[1]];
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -43,6 +59,7 @@ export function DeleteButton<T>({
     }
   }
 
+  if (!allowed || (resource && !can(`${resource}.manage`))) return null;
   return (
     <>
       <button
@@ -68,7 +85,9 @@ export function DeleteButton<T>({
           <p className="text-sm text-slate-600">{confirmMessage}</p>
 
           {error ? (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {error}
+            </p>
           ) : null}
 
           <div className="flex justify-end gap-3 pt-1">

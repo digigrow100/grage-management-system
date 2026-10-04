@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/supabase/permissions";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -10,6 +11,7 @@ import { EditEmployeeButton } from "@/components/forms/EditEmployeeModal";
 import { EMPLOYEE_ROLE_LABELS, EMPLOYEE_ROLE_TONE } from "@/lib/employee-roles";
 
 export default async function EmployeesPage() {
+  await requirePermission("employees.manage");
   const employees = await getEmployees();
   const activeCount = employees.filter((e) => e.active).length;
 
