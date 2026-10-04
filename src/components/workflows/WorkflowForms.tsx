@@ -14,7 +14,7 @@ import {
 } from "@/lib/supabase/mutations";
 import { usePermission } from "@/components/layout/PermissionContext";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { invoicePaymentTotals } from "@/lib/totals";
+import { invoiceTotals, invoicePaymentTotals } from "@/lib/totals";
 import type { Invoice, Vehicle } from "@/lib/types";
 
 const buttonClass =
@@ -96,18 +96,57 @@ function FormModal({
     </>
   );
 }
-export function PaymentPanel({ invoice }: { invoice: Invoice }) {
+export function PaymentPanel({
+  invoice,
+  compact = false,
+}: {
+  invoice: Invoice;
+  compact?: boolean;
+}) {
   const can = usePermission();
   const { received, balance, legacyPaid } = invoicePaymentTotals(invoice);
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <section
+      className={
+        compact
+          ? "border-t border-slate-100 pt-5"
+          : "rounded-xl border border-slate-200 bg-white p-5"
+      }
+    >
+      <div
+        className={
+          compact
+            ? "space-y-5"
+            : "flex flex-wrap items-center justify-between gap-4"
+        }
+      >
         <div>
           <h2 className="font-semibold">Payments</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Received: {formatCurrency(received)} · Remaining:{" "}
-            {formatCurrency(balance)}
-          </p>
+          {compact ? (
+            <dl className="mt-4 space-y-3 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Total amount</dt>
+                <dd className="font-semibold">
+                  {formatCurrency(invoiceTotals(invoice).total)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Received</dt>
+                <dd>{formatCurrency(received)}</dd>
+              </div>
+              <div className="flex justify-between gap-2 rounded-lg bg-accent-50 p-3">
+                <dt className="font-semibold text-accent-700">Remaining</dt>
+                <dd className="font-bold text-accent-700">
+                  {formatCurrency(balance)}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="mt-1 text-sm text-slate-600">
+              Received: {formatCurrency(received)} · Remaining:{" "}
+              {formatCurrency(balance)}
+            </p>
+          )}
         </div>
         {can("invoices.manage") &&
         balance > 0 &&
