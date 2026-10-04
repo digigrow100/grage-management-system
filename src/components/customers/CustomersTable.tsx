@@ -19,6 +19,7 @@ export function CustomersTable({
   vehicles: Vehicle[];
   archivedCustomers: Customer[];
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
 
@@ -94,7 +95,20 @@ export function CustomersTable({
                 return (
                   <tr
                     key={c.id}
-                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                    tabIndex={0}
+                    aria-label={`View ${c.name}'s details`}
+                    onClick={(event) => {
+                      if ((event.target as HTMLElement).closest("a, button, input, select, textarea")) return;
+                      router.push(`/customers/${c.id}`);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(`/customers/${c.id}`);
+                      }
+                    }}
+                    className="cursor-pointer border-b border-slate-50 last:border-0 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-accent-600"
                   >
                     <td className="px-5 py-3">
                       <Link
@@ -117,7 +131,7 @@ export function CustomersTable({
                       ) : null}
                     </td>
                     <td className="px-5 py-3 text-slate-500">{formatDate(c.createdAt)}</td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-5 py-3 text-right" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
                       <DeleteCustomerButton customerId={c.id} customerName={c.name} />
                     </td>
                   </tr>
