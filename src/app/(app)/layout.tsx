@@ -1,3 +1,5 @@
+import { getPermissions } from "@/lib/supabase/permissions";
+import { PermissionProvider } from "@/components/layout/PermissionContext";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { NavDrawerProvider } from "@/components/layout/NavDrawerContext";
@@ -27,6 +29,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const currentGarageId = await getCurrentGarageId();
 
   return (
+    <PermissionProvider permissions={await getPermissions()}>
     <UserProvider email={user.email ?? "Signed in"}>
       <GarageProvider garages={garages} currentGarageId={currentGarageId}>
         <NavDrawerProvider>
@@ -36,5 +39,6 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         </NavDrawerProvider>
       </GarageProvider>
     </UserProvider>
+    </PermissionProvider>
   );
 }

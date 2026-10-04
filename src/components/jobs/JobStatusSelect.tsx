@@ -1,4 +1,5 @@
 "use client";
+import {usePermission} from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,9 +16,13 @@ const statusRingColor: Record<JobStatus, string> = {
   completed: "border-emerald-500/40 text-emerald-800 bg-emerald-50",
   vehicle_released: "border-slate-300 text-slate-700 bg-slate-100",
   invoiced: "border-slate-300 text-slate-700 bg-slate-100",
+  awaiting_authorisation: "border-amber-300 text-amber-700",
+  authorised: "border-blue-300 text-blue-700",
+  cancelled: "border-rose-300 text-rose-700",
 };
 
 export function JobStatusSelect({ jobId, status }: { jobId: string; status: JobStatus }) {
+  const can=usePermission();
   const router = useRouter();
   const [current, setCurrent] = useState(status);
   const [saving, setSaving] = useState(false);
@@ -46,7 +51,7 @@ export function JobStatusSelect({ jobId, status }: { jobId: string; status: JobS
       <div className="relative inline-block">
         <select
           value={current}
-          disabled={saving}
+          disabled={saving || !can("jobs.manage","jobs.update")}
           onChange={(e) => handleChange(e.target.value as JobStatus)}
           className={`appearance-none rounded-full border py-1 pl-3 pr-8 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500/30 disabled:opacity-60 ${statusRingColor[current]}`}
         >

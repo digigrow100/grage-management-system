@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/supabase/permissions";
 import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
@@ -11,7 +12,7 @@ import {
   getVehicles,
 } from "@/lib/supabase/queries";
 import { deleteInvoice } from "@/lib/supabase/mutations";
-import { invoiceTotals } from "@/lib/totals";
+import { invoiceTotals, invoicePaymentTotals } from "@/lib/totals";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { CreateInvoiceButton } from "@/components/forms/CreateInvoiceModal";
 
@@ -24,6 +25,7 @@ const statusTone: Record<string, "neutral" | "blue" | "green" | "red" | "purple"
 };
 
 export default async function InvoicesPage() {
+  await requirePermission("invoices.manage", "invoices.view");
   const [invoices, customers, activeCustomers, vehicles, garage] = await Promise.all([
     getInvoices(),
     getCustomers(),
@@ -67,6 +69,7 @@ export default async function InvoicesPage() {
                 <th className="px-5 py-3 font-medium">Due</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 text-right font-medium">Total</th>
+                <th className="px-5 py-3 text-right font-medium">Received</th><th className="px-5 py-3 text-right font-medium">Remaining</th>
                 <th className="px-5 py-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
@@ -77,6 +80,7 @@ export default async function InvoicesPage() {
                   ? vehicleById.get(inv.vehicleId)
                   : undefined;
                 const { total } = invoiceTotals(inv);
+                const {received,balance}=invoicePaymentTotals(inv);
                 return (
                   <tr
                     key={inv.id}
@@ -110,8 +114,10 @@ export default async function InvoicesPage() {
                     <td className="px-5 py-3 text-right font-medium text-slate-900">
                       {formatCurrency(total)}
                     </td>
+                    <td className="px-5 py-3 text-right">{formatCurrency(received)}</td><td className="px-5 py-3 text-right">{formatCurrency(balance)}</td>
                     <td className="px-5 py-3 text-right">
                       <DeleteButton
+                        allowed={inv.status!=="paid" && inv.payments.length===0}
                         id={inv.id}
                         action={deleteInvoice}
                         label={`Delete ${inv.number}`}

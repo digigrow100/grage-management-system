@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/supabase/permissions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
@@ -32,6 +33,7 @@ export default async function CustomerDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePermission("customers.manage","customers.view");
   const { id } = await params;
   const customer = await getCustomer(id);
   if (!customer) notFound();
@@ -111,7 +113,7 @@ export default async function CustomerDetailPage({
                     <th className="px-5 py-2 font-medium">Vehicle</th>
                     <th className="px-5 py-2 font-medium">Mileage</th>
                     <th className="px-5 py-2 font-medium">MOT due</th>
-                    <th className="px-5 py-2 font-medium">Last service</th>
+                    <th className="px-5 py-2 font-medium">Last service</th><th className="px-5 py-2 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -146,12 +148,13 @@ export default async function CustomerDetailPage({
                             ? formatDate(v.lastServiceDate)
                             : "—"}
                         </td>
+                        <td className="px-5 py-3">{!customer.archived ? <AddVehicleButton customerId={customer.id} customerName={customer.name} vehicle={v} /> : null}</td>
                       </tr>
                     );
                   })}
                   {vehicles.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-5 py-6 text-center text-sm text-slate-400">
+                      <td colSpan={6} className="px-5 py-6 text-center text-sm text-slate-400">
                         No vehicles on record.
                       </td>
                     </tr>

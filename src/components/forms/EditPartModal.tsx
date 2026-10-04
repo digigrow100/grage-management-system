@@ -1,4 +1,5 @@
 "use client";
+import {usePermission} from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,7 @@ import { updatePart } from "@/lib/supabase/mutations";
 import type { Part } from "@/lib/types";
 
 export function EditPartButton({ part }: { part: Part }) {
+  const can = usePermission();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +53,7 @@ export function EditPartButton({ part }: { part: Part }) {
     router.refresh();
   }
 
+  if (!can('inventory.manage')) return null;
   return (
     <>
       <button

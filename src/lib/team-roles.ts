@@ -1,4 +1,10 @@
 export const TEAM_PERMISSIONS = [
+  { key: "customers.view", label: "View customers" },
+  { key: "bookings.view", label: "View bookings" },
+  { key: "jobs.view", label: "View jobs" },
+  { key: "jobs.update", label: "Update job work" },
+  { key: "invoices.view", label: "View invoices" },
+  { key: "inventory.view", label: "View inventory" },
   { key: "dashboard.view", label: "Dashboard" },
   { key: "customers.manage", label: "Customers" },
   { key: "bookings.manage", label: "Bookings" },

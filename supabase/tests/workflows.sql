@@ -1,0 +1,68 @@
+-- Transactional integration test. No test data is retained and no emails are sent.
+begin;
+do $$
+declare g uuid;u uuid;viewer uuid;viewer_role uuid;manual_invoice uuid;old_number text;c uuid;v uuid;p uuid;b uuid;j uuid;i uuid;n numeric;denied boolean;begin
+ select user_id into u from public.garage_members where role='owner' limit 1;
+ if u is null then raise exception 'Test requires an existing owner account.';end if;
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',u,'role','authenticated')::text,true);
+ insert into public.garage_settings(garage_name) values('Transactional workflow test') returning id into g;
+ insert into public.garage_members(garage_id,user_id,role) values(g,u,'owner');
+ insert into public.customers(garage_id,full_name,email,phone,address_line,city,post_code) values(g,'Test Customer','test@example.invalid','','','','') returning id into c;
+ insert into public.vehicles(garage_id,customer_id,registration) values(g,c,'TEST001') returning id into v;
+ insert into public.parts(garage_id,sku,name,stock_level,cost_price,sell_price) values(g,'TESTPART','Test Part',10,10,25) returning id into p;
+ select id into viewer from auth.users where id<>u limit 1;
+ insert into public.garage_roles(garage_id,name,slug,permissions) values(g,'Job viewer','test_viewer',array['jobs.view']) returning id into viewer_role;
+ insert into public.garage_members(garage_id,user_id,role,role_id) values(g,viewer,'other',viewer_role);
+ execute 'set local role authenticated';
+ b=public.create_workshop_booking(g,c,v,'other',current_date,'09:00',60,0,'medium','Test technician','Test bay',null,'{}');
+ select id into j from public.job_cards where booking_id=b;
+ denied=false;
+ begin perform public.create_workshop_booking(g,c,v,'other',current_date,'09:30',60,0,'medium','Test technician','Other bay',null,'{}');exception when others then denied=true;end;
+ if not denied then raise exception 'Overlapping technician was allowed';end if;
+ perform public.save_workshop_job_lines(j,'[{"description":"Labour","hours":1,"rate":50}]',jsonb_build_array(jsonb_build_object('description','Part','partId',p,'quantity',2,'unitPrice',25)));
+ select stock_level into n from public.parts where id=p;if n<>8 then raise exception 'Stock deduction failed: %',n;end if;
+ update public.parts set cost_price=99 where id=p;
+ perform public.save_workshop_job_lines(j,'[{"description":"Labour","hours":1,"rate":50}]',jsonb_build_array(jsonb_build_object('description','Part','partId',p,'quantity',3,'unitPrice',25)));
+ select stock_level into n from public.parts where id=p;if n<>7 then raise exception 'Stock edit failed: %',n;end if;
+ select cost_price into n from public.job_part_lines where job_id=j;if n<>10 then raise exception 'Historical part cost changed';end if;
+ denied=false;begin perform public.save_workshop_job_lines(j,'[]',jsonb_build_array(jsonb_build_object('description','Part','partId',p,'quantity',100,'unitPrice',25)));exception when others then denied=true;end;
+ if not denied then raise exception 'Negative stock allowed';end if;
+ i=public.create_invoice_from_job(j);
+ if public.create_invoice_from_job(j)<>i then raise exception 'Duplicate invoice created';end if;
+ perform public.record_invoice_payment(i,30,current_date,'cash',null);
+ select sum(amount) into n from public.invoice_payments where invoice_id=i;if n<>30 then raise exception 'Partial payment missing';end if;
+ denied=false;begin perform public.record_invoice_payment(i,999,current_date,'cash',null);exception when others then denied=true;end;if not denied then raise exception 'Overpayment allowed';end if;
+ perform public.record_invoice_payment(i,120,current_date,'bank_transfer','Final');
+ if not exists(select 1 from public.invoices where id=i and status='paid') then raise exception 'Full payment did not close invoice';end if;
+ denied=false;begin update public.invoices set status='draft' where id=i;exception when others then denied=true;end;if not denied then raise exception 'Paid invoice reopened';end if;
+ denied=false;begin delete from public.invoices where id=i;exception when others then denied=true;end;if not denied then raise exception 'Paid invoice deleted';end if;
+ manual_invoice=public.save_workshop_invoice(g,null,jsonb_build_object('customerId',c,'vehicleId',v,'invoiceDate',current_date,'dueDate',current_date+14,'vatRate',20,'status','draft','notes','Original','lineItems',jsonb_build_array(jsonb_build_object('description','Manual labour','quantity',1,'unitPrice',100))));
+ select number into old_number from public.invoices where id=manual_invoice;
+ denied=false;begin perform public.save_workshop_invoice(g,manual_invoice,jsonb_build_object('customerId',c,'vehicleId',v,'invoiceDate',current_date,'dueDate',current_date+14,'vatRate',20,'status','sent','notes','Invalid edit','lineItems',jsonb_build_array(jsonb_build_object('description','Invalid','quantity',-1,'unitPrice',100))));exception when others then denied=true;end;
+ if not denied then raise exception 'Invalid manual invoice edit allowed';end if;
+ if not exists(select 1 from public.invoices where id=manual_invoice and number=old_number and notes='Original' and status='draft') or not exists(select 1 from public.invoice_line_items where invoice_id=manual_invoice and unit_price=100 and quantity=1) then raise exception 'Failed invoice edit was not rolled back';end if;
+ insert into public.garage_expenses(garage_id,description,amount,category,spent_on) values(g,'Test expense',25,'other',current_date);
+ -- Daily reminder queue is deduplicated and respects customer consent.
+ update public.garage_settings set automatic_reminders=true where id=g;
+ update public.vehicles set mot_due=current_date+3 where id=v;
+ insert into public.reminders(garage_id,customer_id,title,due_date,delivery_channel) values(g,c,'Test due reminder',current_date,'email');
+ if public.queue_garage_reminders(g)<>2 then raise exception 'Automatic/manual reminder queue failed';end if;
+ if public.queue_garage_reminders(g)<>0 then raise exception 'Reminder deduplication failed';end if;
+ update public.customers set email_opt_in=false where id=c;
+ select count(*) into n from public.claim_reminder_delivery(null,g);if n<>0 then raise exception 'Opted-out customer reminder claimed';end if;
+ update public.customers set email_opt_in=true where id=c;
+ select count(*) into n from public.claim_reminder_delivery(null,g);if n<>2 then raise exception 'Authorized reminder claim failed';end if;
+ -- The real authenticated RLS role can read jobs but cannot mutate stock/payments.
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',viewer,'role','authenticated')::text,true);
+ if not exists(select 1 from public.job_cards where id=j) then raise exception 'Job viewer cannot read assigned garage jobs';end if;
+ denied=false;begin insert into public.parts(garage_id,sku,name) values(g,'DENIED','Denied');exception when insufficient_privilege then denied=true;end;if not denied then raise exception 'Viewer inserted stock';end if;
+ denied=false;begin insert into public.stock_movements(garage_id,part_id,movement_type,quantity) values(g,p,'receipt',1);exception when insufficient_privilege then denied=true;end;if not denied then raise exception 'Viewer bypassed stock permissions via movements';end if;
+ denied=false;begin insert into public.garage_expenses(garage_id,description,amount,category,spent_on) values(g,'Denied',1,'other',current_date);exception when insufficient_privilege then denied=true;end;if not denied then raise exception 'Viewer recorded an expense';end if;
+ denied=false;begin perform public.record_invoice_payment(i,1,current_date,'cash',null);exception when others then denied=true;end;if not denied then raise exception 'Viewer recorded payment';end if;
+ update public.job_cards set notes='Denied' where id=j;get diagnostics n=row_count;if n<>0 then raise exception 'Viewer changed a job';end if;
+ denied=false;begin perform public.claim_reminder_delivery('invalid',null);exception when others then denied=true;end;if not denied then raise exception 'Invalid worker token accepted';end if;
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',gen_random_uuid(),'role','authenticated')::text,true);
+ denied=false;begin perform public.create_invoice_from_job(j);exception when others then denied=true;end;if not denied then raise exception 'Non-member invoiced job';end if;
+end $$;
+select 'Booking conflicts, stock, historical cost, invoices, partial payments, reminders, consent and role authorization passed' as result;
+rollback;

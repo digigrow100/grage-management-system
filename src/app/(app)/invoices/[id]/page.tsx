@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/supabase/permissions";
 import { notFound } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import {
@@ -16,6 +17,7 @@ export default async function InvoiceDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePermission("invoices.manage","invoices.view");
   const { id } = await params;
   const invoice = await getInvoice(id);
   if (!invoice) notFound();

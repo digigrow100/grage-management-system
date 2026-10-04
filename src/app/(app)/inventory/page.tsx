@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/supabase/permissions";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -9,6 +10,7 @@ import { AddPartButton } from "@/components/forms/AddPartModal";
 import { EditPartButton } from "@/components/forms/EditPartModal";
 
 export default async function InventoryPage() {
+  await requirePermission("inventory.manage", "inventory.view");
   const parts = await getParts();
   const lowStockCount = parts.filter((p) => p.stockLevel <= p.reorderLevel).length;
 

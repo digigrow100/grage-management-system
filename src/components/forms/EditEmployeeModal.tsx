@@ -1,4 +1,5 @@
 "use client";
+import {usePermission} from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -10,6 +11,7 @@ import { EMPLOYEE_ROLES, EMPLOYEE_ROLE_LABELS } from "@/lib/employee-roles";
 import type { Employee, EmployeeRole } from "@/lib/types";
 
 export function EditEmployeeButton({ employee }: { employee: Employee }) {
+  const can = usePermission();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(employee.active);
@@ -42,6 +44,7 @@ export function EditEmployeeButton({ employee }: { employee: Employee }) {
     router.refresh();
   }
 
+  if (!can('employees.manage')) return null;
   return (
     <>
       <button

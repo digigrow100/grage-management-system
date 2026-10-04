@@ -18,6 +18,9 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   completed: "Completed",
   vehicle_released: "Vehicle Released",
   invoiced: "Invoiced",
+  awaiting_authorisation: "Awaiting Authorisation",
+  authorised: "Authorised",
+  cancelled: "Cancelled",
 };
 
 export type JobStatusTone = "neutral" | "blue" | "green" | "amber" | "red" | "purple";
@@ -30,6 +33,9 @@ export const JOB_STATUS_TONE: Record<JobStatus, JobStatusTone> = {
   completed: "green",
   vehicle_released: "neutral",
   invoiced: "neutral",
+  awaiting_authorisation: "amber",
+  authorised: "blue",
+  cancelled: "red",
 };
 
 export const JOB_PRIORITIES: JobPriority[] = ["low", "medium", "high"];

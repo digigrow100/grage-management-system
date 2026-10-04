@@ -5,7 +5,10 @@ export type JobStatus =
   | "awaiting_parts"
   | "completed"
   | "vehicle_released"
-  | "invoiced";
+  | "invoiced"
+  | "awaiting_authorisation"
+  | "authorised"
+  | "cancelled";
 
 export type JobPriority = "low" | "medium" | "high";
 
@@ -47,6 +50,7 @@ export interface Customer {
   createdAt: string;
   notes?: string | null;
   archived: boolean;
+  emailOptIn: boolean;
 }
 
 export type TyreCondition = "new" | "part_worn";
@@ -120,6 +124,7 @@ export interface JobPartLine {
   description: string;
   quantity: number;
   unitPrice: number;
+  costPrice: number;
 }
 
 export interface JobCard {
@@ -146,6 +151,10 @@ export interface InvoiceLineItem {
   unitPrice: number;
 }
 
+export interface InvoicePayment {
+  id: string; amount: number; paidOn: string; method: string; reference: string | null;
+}
+
 export interface Invoice {
   id: string;
   number: string;
@@ -156,6 +165,7 @@ export interface Invoice {
   dueDate: string;
   status: InvoiceStatus;
   lineItems: InvoiceLineItem[];
+  payments: InvoicePayment[];
   vatRate: number;
   notes?: string | null;
 }

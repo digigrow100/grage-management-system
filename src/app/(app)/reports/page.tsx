@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/supabase/permissions";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { StatCard } from "@/components/ui/StatCard";
@@ -26,6 +27,7 @@ function lastSixMonths(): { key: string; label: string }[] {
 }
 
 export default async function ReportsPage() {
+  await requirePermission("reports.view");
   const [invoices, jobCards, parts, customers] = await Promise.all([
     getInvoices(),
     getJobCards(),

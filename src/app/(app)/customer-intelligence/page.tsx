@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/supabase/permissions";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -17,6 +18,7 @@ function segmentFor(daysSinceLastVisit: number | null): { label: string; tone: S
 }
 
 export default async function CustomerIntelligencePage() {
+  await requirePermission("reports.view");
   const [customers, bookings, invoices] = await Promise.all([
     getCustomers(),
     getBookings(),

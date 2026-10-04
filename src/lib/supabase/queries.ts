@@ -31,6 +31,7 @@ type JobCardRow = Tables<"job_cards"> & {
 };
 type InvoiceRow = Tables<"invoices"> & {
   invoice_line_items: Tables<"invoice_line_items">[];
+  invoice_payments: Tables<"invoice_payments">[];
 };
 
 function mapCustomer(row: CustomerRow): Customer {
@@ -45,6 +46,7 @@ function mapCustomer(row: CustomerRow): Customer {
     createdAt: row.created_at,
     notes: row.notes,
     archived: row.archived,
+    emailOptIn: row.email_opt_in,
   };
 }
 
@@ -149,6 +151,7 @@ function mapPartLine(row: Tables<"job_part_lines">): JobPartLine {
     description: row.description,
     quantity: row.quantity,
     unitPrice: row.unit_price,
+    costPrice: row.cost_price,
   };
 }
 
@@ -193,11 +196,12 @@ function mapInvoice(row: InvoiceRow): Invoice {
     vatRate: row.vat_rate,
     notes: row.notes,
     lineItems: (row.invoice_line_items ?? []).map(mapLineItem),
+    payments: (row.invoice_payments ?? []).map(p => ({id:p.id,amount:p.amount,paidOn:p.paid_on,method:p.method,reference:p.reference})),
   };
 }
 
 const JOB_CARD_SELECT = "*, job_labour_lines(*), job_part_lines(*)";
-const INVOICE_SELECT = "*, invoice_line_items(*)";
+const INVOICE_SELECT = "*, invoice_line_items(*), invoice_payments(*)";
 
 // ---- Customers ----
 

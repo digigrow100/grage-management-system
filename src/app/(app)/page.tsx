@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/supabase/permissions";
 import { TopBar } from "@/components/layout/TopBar";
 import { StatCard } from "@/components/ui/StatCard";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
@@ -10,7 +11,7 @@ import {
   getParts,
   getVehicles,
 } from "@/lib/supabase/queries";
-import { invoiceTotals } from "@/lib/totals";
+import { invoicePaymentTotals } from "@/lib/totals";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/format";
 import { JOB_TYPE_LABELS, JOB_TYPE_TONE } from "@/lib/job-types";
 import { JOB_STATUS_LABELS, JOB_STATUS_TONE } from "@/lib/job-status";
@@ -22,6 +23,7 @@ function today(): string {
 }
 
 export default async function DashboardPage() {
+  await requirePermission("dashboard.view");
   const [customers, vehicles, bookings, jobCards, invoices, parts] =
     await Promise.all([
       getCustomers(),
@@ -52,7 +54,7 @@ export default async function DashboardPage() {
     (i) => i.status === "sent" || i.status === "overdue"
   );
   const outstandingTotal = outstandingInvoices.reduce(
-    (sum, inv) => sum + invoiceTotals(inv).total,
+    (sum, inv) => sum + invoicePaymentTotals(inv).balance,
     0
   );
 
