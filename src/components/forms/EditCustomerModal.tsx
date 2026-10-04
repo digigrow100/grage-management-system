@@ -1,15 +1,29 @@
 "use client";
-import {usePermission} from "@/components/layout/PermissionContext";
+import { usePermission } from "@/components/layout/PermissionContext";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Hash, Mail, MapPin, Pencil, Phone, User } from "lucide-react";
+import {
+  Building2,
+  Hash,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
+  User,
+} from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FieldGroup, TextArea, TextInput } from "@/components/ui/Field";
 import { updateCustomer } from "@/lib/supabase/mutations";
 import type { Customer } from "@/lib/types";
 
-export function EditCustomerButton({ customer }: { customer: Customer }) {
+export function EditCustomerButton({
+  customer,
+  profile = false,
+}: {
+  customer: Customer;
+  profile?: boolean;
+}) {
   const can = usePermission();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -44,15 +58,19 @@ export function EditCustomerButton({ customer }: { customer: Customer }) {
     router.refresh();
   }
 
-  if (!can('customers.manage')) return null;
+  if (!can("customers.manage")) return null;
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+        className={
+          profile
+            ? "flex flex-1 items-center justify-center gap-2 rounded-lg border border-accent-600 px-4 py-2.5 text-sm font-medium text-accent-600 hover:bg-accent-50"
+            : "flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+        }
       >
-        <Pencil size={13} /> Edit
+        <Pencil size={profile ? 16 : 13} /> {profile ? "Edit customer" : "Edit"}
       </button>
 
       <Modal
@@ -141,7 +159,14 @@ export function EditCustomerButton({ customer }: { customer: Customer }) {
             />
           </FieldGroup>
 
-          <label className="flex items-center gap-2 text-sm"><input name="emailOptIn" type="checkbox" defaultChecked={customer.emailOptIn}/>Customer allows service reminder emails</label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              name="emailOptIn"
+              type="checkbox"
+              defaultChecked={customer.emailOptIn}
+            />
+            Customer allows service reminder emails
+          </label>
           {error ? (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {error}
