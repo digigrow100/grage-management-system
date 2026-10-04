@@ -1,3 +1,10 @@
+import {
+  bookingCalendarDays,
+  CALENDAR_DAYS,
+  isCalendarDate,
+  shiftCalendarDate,
+  workshopToday,
+} from "@/lib/booking-calendar";
 import { requirePermission } from "@/lib/supabase/permissions";
 import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
@@ -5,6 +12,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import {
+  getGarageSettings,
   getActiveCustomers,
   getBookings,
   getCustomers,
@@ -18,54 +26,105 @@ import { JOB_TYPE_LABELS, JOB_TYPE_TONE } from "@/lib/job-types";
 import { formatCurrency } from "@/lib/format";
 import { formatServiceDetailsSummary } from "@/lib/service-fields";
 
-function upcomingDays(count: number) {
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  const days: { date: string; label: string }[] = [];
-  const start = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
-    days.push({
-      date: iso,
-      label: `${dayNames[d.getDay()]} ${d.getDate()} ${monthNames[d.getMonth()]}`,
-    });
-  }
-  return days;
-}
-
-export default async function DiaryPage() {
+export default async function DiaryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string | string[] }>;
+}) {
   await requirePermission("bookings.manage", "bookings.view");
-  const [bookings, customers, activeCustomers, vehicles, jobCards, employees] =
-    await Promise.all([
-      getBookings(),
-      getCustomers(),
-      getActiveCustomers(),
-      getVehicles(),
-      getJobCards(),
-      getEmployees(),
-    ]);
+  const [
+    bookings,
+    customers,
+    activeCustomers,
+    vehicles,
+    jobCards,
+    employees,
+    settings,
+    query,
+  ] = await Promise.all([
+    getBookings(),
+    getCustomers(),
+    getActiveCustomers(),
+    getVehicles(),
+    getJobCards(),
+    getEmployees(),
+    getGarageSettings(),
+    searchParams,
+  ]);
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const vehicleById = new Map(vehicles.map((v) => [v.id, v]));
   const jobIdByBookingId = new Map(
-    jobCards.filter((j) => j.bookingId).map((j) => [j.bookingId as string, j.id])
+    jobCards
+      .filter((j) => j.bookingId)
+      .map((j) => [j.bookingId as string, j.id]),
   );
-  const days = upcomingDays(5);
+  const today = workshopToday(settings.timezone);
+  const startDate =
+    typeof query.date === "string" && isCalendarDate(query.date)
+      ? query.date
+      : today;
+  const days = bookingCalendarDays(startDate);
+  const previousDate = shiftCalendarDate(startDate, -CALENDAR_DAYS);
+  const nextDate = shiftCalendarDate(startDate, CALENDAR_DAYS);
 
   return (
     <>
       <TopBar
         title="Bookings"
-        subtitle="Upcoming booking calendar across bays and technicians"
+        subtitle={`${days[0].label} ${startDate.slice(0, 4)} – ${days[days.length - 1].label} ${days[days.length - 1].date.slice(0, 4)} · ${settings.timezone}`}
       />
       <main className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-        <div className="flex justify-end">
-          <BookJobButton customers={activeCustomers} employees={employees} vehicles={vehicles} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <nav
+            aria-label="Booking calendar dates"
+            className="flex flex-wrap items-center gap-2 text-sm"
+          >
+            <Link
+              href={`/diary?date=${previousDate}`}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+            >
+              ← Previous 5 days
+            </Link>
+            <Link
+              href={`/diary?date=${today}`}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+            >
+              Today
+            </Link>
+            <Link
+              href={`/diary?date=${nextDate}`}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+            >
+              Next 5 days →
+            </Link>
+            <form action="/diary" className="flex items-center gap-2">
+              <label htmlFor="calendar-date" className="sr-only">
+                Calendar start date
+              </label>
+              <input
+                key={startDate}
+                id="calendar-date"
+                type="date"
+                name="date"
+                defaultValue={startDate}
+                required
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+              />
+              <button
+                type="submit"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+              >
+                Go
+              </button>
+            </form>
+          </nav>
+          <BookJobButton
+            customers={activeCustomers}
+            employees={employees}
+            vehicles={vehicles}
+            initialDate={startDate}
+          />
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
           {days.map((day) => {
@@ -95,7 +154,9 @@ export default async function DiaryPage() {
                         ? vehicleById.get(b.vehicleId)
                         : undefined;
                       const jobId = jobIdByBookingId.get(b.id);
-                      const assignment = [b.bay, b.technician].filter(Boolean).join(" · ");
+                      const assignment = [b.bay, b.technician]
+                        .filter(Boolean)
+                        .join(" · ");
                       return (
                         <div
                           key={b.id}
