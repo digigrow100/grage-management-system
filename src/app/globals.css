@@ -66,3 +66,16 @@ body {
     transform: translateX(0);
   }
 }
+
+/* Keep the calendar scrollable without a visible bottom scrollbar. */
+.booking-calendar-scroll {
+  scrollbar-width: none;
+}
+.booking-calendar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.booking-calendar-today {
+  background-color: var(--accent-50);
+  border-color: #bfdbfe;
+}
