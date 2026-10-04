@@ -2,7 +2,9 @@ import { requirePermission } from "@/lib/supabase/permissions";
 import Link from "next/link";
 import { InvoiceRow } from "@/components/invoices/InvoiceRow";
 import { TopBar } from "@/components/layout/TopBar";
-import { Card } from "@/components/ui/Card";
+import { StatCard } from "@/components/ui/StatCard";
+import { FileText, ClipboardList, Wallet, Clock3 } from "lucide-react";
+import { Card, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import {
@@ -42,31 +44,83 @@ export default async function InvoicesPage() {
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const vehicleById = new Map(vehicles.map((v) => [v.id, v]));
 
+  const issuedInvoices = invoices.filter(
+    (invoice) => invoice.status !== "estimate",
+  );
+  const estimates = invoices.filter((invoice) => invoice.status === "estimate");
+  const paymentSummary = issuedInvoices.reduce(
+    (summary, invoice) => {
+      const { received, balance } = invoicePaymentTotals(invoice);
+      return {
+        received: summary.received + received,
+        balance: summary.balance + balance,
+      };
+    },
+    { received: 0, balance: 0 },
+  );
+
   return (
     <>
       <TopBar
         title="Estimates & Invoicing"
         subtitle={`${invoices.length} invoices`}
       />
-      <main className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-        <div className="flex justify-end gap-2">
-          <CreateInvoiceButton
-            customers={activeCustomers}
-            vehicles={vehicles}
-            mode="estimate"
-            defaultVatRate={garage.defaultVatRate}
+      <main className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-500">
+            Manage estimates, invoices, and payments.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <CreateInvoiceButton
+              customers={activeCustomers}
+              vehicles={vehicles}
+              mode="estimate"
+              defaultVatRate={garage.defaultVatRate}
+            />
+            <CreateInvoiceButton
+              customers={activeCustomers}
+              vehicles={vehicles}
+              defaultVatRate={garage.defaultVatRate}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard
+            label="Invoices"
+            value={String(issuedInvoices.length)}
+            icon={FileText}
+            tone="blue"
           />
-          <CreateInvoiceButton
-            customers={activeCustomers}
-            vehicles={vehicles}
-            defaultVatRate={garage.defaultVatRate}
+          <StatCard
+            label="Estimates"
+            value={String(estimates.length)}
+            icon={ClipboardList}
+            tone="amber"
+          />
+          <StatCard
+            label="Payments received"
+            value={formatCurrency(paymentSummary.received)}
+            icon={Wallet}
+            tone="green"
+          />
+          <StatCard
+            label="Remaining balance"
+            value={formatCurrency(paymentSummary.balance)}
+            icon={Clock3}
+            tone="red"
+            hint="Includes drafts · excludes estimates"
           />
         </div>
-        <Card>
+        <Card className="overflow-hidden rounded-2xl">
+          <CardHeader
+            title="Invoice register"
+            subtitle={`${issuedInvoices.length} invoices · ${estimates.length} estimates`}
+            icon={FileText}
+          />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-xs text-slate-500">
+                <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs text-slate-500">
                   <th className="px-5 py-3 font-medium">Number</th>
                   <th className="px-5 py-3 font-medium">Customer</th>
                   <th className="px-5 py-3 font-medium">Vehicle</th>
@@ -94,8 +148,11 @@ export default async function InvoicesPage() {
                       <td className="px-5 py-3">
                         <Link
                           href={`/invoices/${inv.id}`}
-                          className="font-medium text-slate-900 hover:no-underline"
+                          className="flex items-center gap-2 font-semibold text-slate-900 hover:text-accent-600"
                         >
+                          <span className="rounded-lg bg-accent-50 p-2 text-accent-600">
+                            <FileText size={16} aria-hidden="true" />
+                          </span>
                           {inv.number}
                         </Link>
                       </td>
@@ -103,7 +160,13 @@ export default async function InvoicesPage() {
                         {customer?.name}
                       </td>
                       <td className="px-5 py-3 text-slate-500">
-                        {vehicle?.registration ?? "—"}
+                        {vehicle ? (
+                          <span className="whitespace-nowrap rounded-md border border-amber-200 bg-amber-100 px-2 py-1 text-xs font-bold tracking-wide text-slate-900">
+                            {vehicle.registration}
+                          </span>
+                        ) : (
+                          "No vehicle"
+                        )}
                       </td>
                       <td className="px-5 py-3 text-slate-500">
                         {formatDate(inv.date)}
@@ -122,10 +185,10 @@ export default async function InvoicesPage() {
                       <td className="px-5 py-3 text-right font-medium text-slate-900">
                         {formatCurrency(total)}
                       </td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-5 py-3 text-right font-medium text-emerald-700">
                         {formatCurrency(received)}
                       </td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-5 py-3 text-right font-semibold text-slate-900">
                         {formatCurrency(balance)}
                       </td>
                       <td className="px-5 py-3 text-right">

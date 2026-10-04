@@ -3,8 +3,17 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArchiveRestore, ChevronDown, Loader2, Search } from "lucide-react";
-import { Card } from "@/components/ui/Card";
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronDown,
+  Loader2,
+  Search,
+  Users,
+  Mail,
+  Phone,
+} from "lucide-react";
+import { Card, CardHeader } from "@/components/ui/Card";
 import { DeleteCustomerButton } from "@/components/customers/DeleteCustomerButton";
 import { restoreCustomer } from "@/lib/supabase/mutations";
 import { formatDate } from "@/lib/format";
@@ -56,18 +65,19 @@ export function CustomersTable({
 
   return (
     <div className="space-y-4">
-      <Card className="p-4">
+      <Card className="rounded-2xl p-4 sm:p-5">
         <div className="relative">
           <Search
             size={15}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           />
           <input
-            type="text"
+            type="search"
+            aria-label="Search customers"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, email, phone, location, or vehicle registration..."
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm shadow-sm transition-all focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/10"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-9 pr-3 text-sm shadow-sm transition-all focus:border-accent-500 focus:outline-none focus:ring-4 focus:ring-accent-500/10"
           />
         </div>
         {search ? (
@@ -77,11 +87,16 @@ export function CustomersTable({
         ) : null}
       </Card>
 
-      <Card>
+      <Card className="overflow-hidden rounded-2xl">
+        <CardHeader
+          title="Customer directory"
+          subtitle={`${filtered.length} customer${filtered.length === 1 ? "" : "s"} shown`}
+          icon={Users}
+        />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-left text-xs text-slate-500">
+              <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs text-slate-500">
                 <th className="px-5 py-3 font-medium">Name</th>
                 <th className="px-5 py-3 font-medium">Contact</th>
                 <th className="px-5 py-3 font-medium">Vehicles</th>
@@ -98,7 +113,12 @@ export function CustomersTable({
                     tabIndex={0}
                     aria-label={`View ${c.name}'s details`}
                     onClick={(event) => {
-                      if ((event.target as HTMLElement).closest("a, button, input, select, textarea")) return;
+                      if (
+                        (event.target as HTMLElement).closest(
+                          "a, button, input, select, textarea",
+                        )
+                      )
+                        return;
                       router.push(`/customers/${c.id}`);
                     }}
                     onKeyDown={(event) => {
@@ -113,33 +133,68 @@ export function CustomersTable({
                     <td className="px-5 py-3">
                       <Link
                         href={`/customers/${c.id}`}
-                        className="font-medium text-slate-900 hover:no-underline"
+                        className="flex items-center gap-3 font-semibold text-slate-900 hover:text-accent-600"
                       >
-                        {c.name}
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-50 text-xs font-bold text-accent-600">
+                          {c.name
+                            .trim()
+                            .split(/\s+/)
+                            .slice(0, 2)
+                            .map((part) => part[0])
+                            .join("")
+                            .toUpperCase()}
+                        </span>
+                        <span>{c.name}</span>
                       </Link>
                     </td>
                     <td className="px-5 py-3 text-slate-500">
-                      <div>{c.email}</div>
-                      <div>{c.phone}</div>
+                      <div className="flex items-center gap-2">
+                        <Mail size={13} className="shrink-0 text-slate-400" />
+                        {c.email || "No email"}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-xs">
+                        <Phone size={13} className="shrink-0 text-slate-400" />
+                        {c.phone || "No phone"}
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-slate-700">
-                      {customerVehicles.length} vehicle{customerVehicles.length === 1 ? "" : "s"}
+                      {customerVehicles.length} vehicle
+                      {customerVehicles.length === 1 ? "" : "s"}
                       {customerVehicles.length > 0 ? (
-                        <p className="text-xs text-slate-400">
-                          {customerVehicles.map((v) => v.registration).join(", ")}
-                        </p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {customerVehicles.map((v) => (
+                            <span
+                              key={v.id}
+                              className="rounded-md border border-amber-200 bg-amber-100 px-2 py-0.5 text-[11px] font-bold tracking-wide text-slate-900"
+                            >
+                              {v.registration}
+                            </span>
+                          ))}
+                        </div>
                       ) : null}
                     </td>
-                    <td className="px-5 py-3 text-slate-500">{formatDate(c.createdAt)}</td>
-                    <td className="px-5 py-3 text-right" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-                      <DeleteCustomerButton customerId={c.id} customerName={c.name} />
+                    <td className="px-5 py-3 text-slate-500">
+                      {formatDate(c.createdAt)}
+                    </td>
+                    <td
+                      className="px-5 py-3 text-right"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <DeleteCustomerButton
+                        customerId={c.id}
+                        customerName={c.name}
+                      />
                     </td>
                   </tr>
                 );
               })}
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-6 text-center text-sm text-slate-400">
+                  <td
+                    colSpan={5}
+                    className="px-5 py-6 text-center text-sm text-slate-400"
+                  >
                     {customers.length === 0
                       ? 'No customers yet. Click "New customer" to add one.'
                       : "No customers match your search."}
@@ -172,8 +227,13 @@ export function CustomersTable({
               <table className="w-full text-sm">
                 <tbody>
                   {archivedCustomers.map((c) => (
-                    <tr key={c.id} className="border-b border-slate-50 last:border-0">
-                      <td className="px-5 py-3 font-medium text-slate-700">{c.name}</td>
+                    <tr
+                      key={c.id}
+                      className="border-b border-slate-50 last:border-0"
+                    >
+                      <td className="px-5 py-3 font-medium text-slate-700">
+                        {c.name}
+                      </td>
                       <td className="px-5 py-3 text-slate-500">{c.email}</td>
                       <td className="px-5 py-3 text-right">
                         <RestoreButton customerId={c.id} />
@@ -217,7 +277,11 @@ function RestoreButton({ customerId }: { customerId: string }) {
         disabled={pending}
         className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
       >
-        {pending ? <Loader2 size={13} className="animate-spin" /> : <ArchiveRestore size={13} />}
+        {pending ? (
+          <Loader2 size={13} className="animate-spin" />
+        ) : (
+          <ArchiveRestore size={13} />
+        )}
         {pending ? "Restoring..." : "Restore"}
       </button>
       {error ? <p className="text-xs text-rose-700">{error}</p> : null}
