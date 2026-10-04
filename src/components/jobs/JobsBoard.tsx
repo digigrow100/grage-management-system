@@ -197,7 +197,7 @@ export function JobsBoard({
                     <td className="px-5 py-3">
                       <Link
                         href={`/jobs/${job.id}`}
-                        className="font-medium text-slate-900 hover:underline"
+                        className="font-medium text-slate-900 hover:no-underline"
                       >
                         {vehicle?.registration ?? "No vehicle"}
                       </Link>

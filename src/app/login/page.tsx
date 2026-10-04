@@ -44,7 +44,7 @@ function LoginForm() {
         />
       </FieldGroup>
 
-      <Link href="/forgot-password" className="block text-right text-sm text-accent-600 hover:underline">Forgot password?</Link>
+      <Link href="/forgot-password" className="block text-right text-sm text-accent-600 hover:no-underline">Forgot password?</Link>
 
       {state.error ? (
         <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -71,7 +71,7 @@ export default function LoginPage() {
       </Suspense>
       <p className="mt-6 text-center text-sm text-slate-500">
         No account yet?{" "}
-        <Link href="/signup" className="font-medium text-accent-600 hover:underline">Create one</Link>
+        <Link href="/signup" className="font-medium text-accent-600 hover:no-underline">Create one</Link>
       </p>
     </AuthLayout>
   );
