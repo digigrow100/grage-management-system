@@ -20,7 +20,7 @@ export default async function JobsPage() {
   return (
     <>
       <TopBar title="Jobs" subtitle="Manage and track all service jobs" />
-      <main className="flex-1 overflow-x-auto p-4 sm:p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         <JobsBoard
           jobCards={jobCards}
           customers={customers}
