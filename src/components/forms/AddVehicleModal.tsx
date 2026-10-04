@@ -21,6 +21,52 @@ export function AddVehicleButton({
   const router = useRouter();
   const can = usePermission();
   const [open, setOpen] = useState(false);
+  if (!can("customers.manage")) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 rounded-lg bg-accent-600 px-3 py-2 text-xs font-medium text-white hover:bg-accent-700"
+      >
+        {vehicle ? <Pencil size={14} /> : <Plus size={14} />}{" "}
+        {vehicle ? "Edit" : "Add Vehicle"}
+      </button>
+      {open ? (
+        <AddVehicleModal
+          open={open}
+          customerId={customerId}
+          customerName={customerName}
+          vehicle={vehicle}
+          onClose={() => setOpen(false)}
+          onSaved={() => {
+            setOpen(false);
+            router.refresh();
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export function AddVehicleModal({
+  open,
+  customerId,
+  customerName,
+  vehicle,
+  onClose,
+  onSaved,
+  onSkip,
+}: {
+  open: boolean;
+  customerId: string;
+  customerName: string;
+  vehicle?: Vehicle;
+  onClose: () => void;
+  onSaved: () => void;
+  onSkip?: () => void;
+}) {
+  const can = usePermission();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,8 +96,7 @@ export function AddVehicleButton({
         setError(result.error);
         return;
       }
-      setOpen(false);
-      router.refresh();
+      onSaved();
     } catch {
       setError("Could not save the vehicle. Please try again.");
     } finally {
@@ -61,141 +106,128 @@ export function AddVehicleButton({
 
   if (!can("customers.manage")) return null;
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          setError(null);
-          setOpen(true);
-        }}
-        className="flex items-center gap-1.5 rounded-lg bg-accent-600 px-3 py-2 text-xs font-medium text-white hover:bg-accent-700"
-      >
-        {vehicle ? <Pencil size={14} /> : <Plus size={14} />}{" "}
-        {vehicle ? "Edit" : "Add Vehicle"}
-      </button>
-      <Modal
-        open={open}
-        onClose={() => {
-          if (!pending) setOpen(false);
-        }}
-        title={vehicle ? "Edit Vehicle" : "Add Vehicle"}
-        subtitle={`${vehicle ? "Update" : "Add a vehicle for"} ${customerName}`}
-        icon={Car}
-      >
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <fieldset disabled={pending} className="space-y-5">
-            <FieldGroup
-              label="Registration"
-              htmlFor="vehicle-registration"
+    <Modal
+      open={open}
+      onClose={() => {
+        if (!pending) onClose();
+      }}
+      title={vehicle ? "Edit Vehicle" : "Add Vehicle"}
+      subtitle={`${vehicle ? "Update" : "Add a vehicle for"} ${customerName}`}
+      icon={Car}
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <fieldset disabled={pending} className="space-y-5">
+          <FieldGroup
+            label="Registration"
+            htmlFor="vehicle-registration"
+            required
+          >
+            <TextInput
+              id="vehicle-registration"
+              name="registration"
+              defaultValue={vehicle?.registration}
               required
-            >
+              maxLength={20}
+              autoFocus
+              className="uppercase"
+              placeholder="LM19 XYZ"
+            />
+          </FieldGroup>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(
+              [
+                ["make", "Make"],
+                ["model", "Model"],
+                ["colour", "Colour"],
+              ] as const
+            ).map(([name, label]) => (
+              <FieldGroup
+                key={name}
+                label={label}
+                htmlFor={`vehicle-${name}`}
+                hint="Optional"
+              >
+                <TextInput
+                  id={`vehicle-${name}`}
+                  name={name}
+                  defaultValue={vehicle?.[name] ?? ""}
+                />
+              </FieldGroup>
+            ))}
+            <FieldGroup label="Year" htmlFor="vehicle-year" hint="Optional">
               <TextInput
-                id="vehicle-registration"
-                name="registration"
-                defaultValue={vehicle?.registration}
-                required
-                maxLength={20}
-                autoFocus
-                className="uppercase"
-                placeholder="LM19 XYZ"
+                id="vehicle-year"
+                name="year"
+                defaultValue={vehicle?.year ?? ""}
+                type="number"
+                min={1886}
+                max={new Date().getFullYear() + 1}
+                step={1}
               />
             </FieldGroup>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {(
-                [
-                  ["make", "Make"],
-                  ["model", "Model"],
-                  ["colour", "Colour"],
-                ] as const
-              ).map(([name, label]) => (
-                <FieldGroup
-                  key={name}
-                  label={label}
-                  htmlFor={`vehicle-${name}`}
-                  hint="Optional"
-                >
-                  <TextInput
-                    id={`vehicle-${name}`}
-                    name={name}
-                    defaultValue={vehicle?.[name] ?? ""}
-                  />
-                </FieldGroup>
-              ))}
-              <FieldGroup label="Year" htmlFor="vehicle-year" hint="Optional">
-                <TextInput
-                  id="vehicle-year"
-                  name="year"
-                  defaultValue={vehicle?.year ?? ""}
-                  type="number"
-                  min={1886}
-                  max={new Date().getFullYear() + 1}
-                  step={1}
-                />
-              </FieldGroup>
-              <FieldGroup
-                label="Mileage (miles)"
-                htmlFor="vehicle-mileage"
-                hint="Optional"
-              >
-                <TextInput
-                  id="vehicle-mileage"
-                  name="mileage"
-                  defaultValue={vehicle?.mileage ?? ""}
-                  type="number"
-                  min={0}
-                  max={2147483647}
-                  step={1}
-                />
-              </FieldGroup>
-              <FieldGroup label="MOT due" htmlFor="vehicle-mot" hint="Optional">
-                <TextInput
-                  id="vehicle-mot"
-                  name="motDue"
-                  defaultValue={vehicle?.motDue ?? ""}
-                  type="date"
-                />
-              </FieldGroup>
-              <FieldGroup
-                label="Last service"
-                htmlFor="vehicle-service"
-                hint="Optional"
-              >
-                <TextInput
-                  id="vehicle-service"
-                  name="lastServiceDate"
-                  defaultValue={vehicle?.lastServiceDate ?? ""}
-                  type="date"
-                />
-              </FieldGroup>
-            </div>
-          </fieldset>
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+            <FieldGroup
+              label="Mileage (miles)"
+              htmlFor="vehicle-mileage"
+              hint="Optional"
             >
-              {error}
-            </p>
-          ) : null}
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => setOpen(false)}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
+              <TextInput
+                id="vehicle-mileage"
+                name="mileage"
+                defaultValue={vehicle?.mileage ?? ""}
+                type="number"
+                min={0}
+                max={2147483647}
+                step={1}
+              />
+            </FieldGroup>
+            <FieldGroup label="MOT due" htmlFor="vehicle-mot" hint="Optional">
+              <TextInput
+                id="vehicle-mot"
+                name="motDue"
+                defaultValue={vehicle?.motDue ?? ""}
+                type="date"
+              />
+            </FieldGroup>
+            <FieldGroup
+              label="Last service"
+              htmlFor="vehicle-service"
+              hint="Optional"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-60"
-            >
-              {pending ? "Saving..." : vehicle ? "Save Changes" : "Add Vehicle"}
-            </button>
+              <TextInput
+                id="vehicle-service"
+                name="lastServiceDate"
+                defaultValue={vehicle?.lastServiceDate ?? ""}
+                type="date"
+              />
+            </FieldGroup>
           </div>
-        </form>
-      </Modal>
-    </>
+        </fieldset>
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          >
+            {error}
+          </p>
+        ) : null}
+        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onSkip ?? onClose}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 disabled:opacity-60"
+          >
+            {onSkip ? "Skip" : "Cancel"}
+          </button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 disabled:opacity-60"
+          >
+            {pending ? "Saving..." : vehicle ? "Save Changes" : "Add Vehicle"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

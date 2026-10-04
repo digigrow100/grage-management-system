@@ -25,7 +25,7 @@ export async function addCustomer(input: {
   city: string;
   postCode: string;
   vehicleRegistration?: string;
-}): Promise<MutationResult> {
+}): Promise<{ error: string } | { customerId: string }> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -57,7 +57,7 @@ export async function addCustomer(input: {
 
   revalidatePath("/customers");
   revalidatePath("/");
-  return {};
+  return { customerId: customer.id };
 }
 
 export async function addVehicle(input: {
