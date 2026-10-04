@@ -66,7 +66,7 @@ export default async function JobDetailPage({
               <p>
                 <Link
                   href={`/customers/${customer?.id}`}
-                  className="font-medium text-slate-900 hover:underline"
+                  className="font-medium text-slate-900 hover:no-underline"
                 >
                   {customer?.name}
                 </Link>
@@ -133,7 +133,7 @@ export default async function JobDetailPage({
               {job.invoiceId ? (
                 <Link
                   href={`/invoices/${job.invoiceId}`}
-                  className="mt-2 inline-block text-xs font-medium text-accent-600 hover:underline"
+                  className="mt-2 inline-block text-xs font-medium text-accent-600 hover:no-underline"
                 >
                   View linked invoice →
                 </Link>

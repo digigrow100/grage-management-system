@@ -113,7 +113,7 @@ export function CustomersTable({
                     <td className="px-5 py-3">
                       <Link
                         href={`/customers/${c.id}`}
-                        className="font-medium text-slate-900 hover:underline"
+                        className="font-medium text-slate-900 hover:no-underline"
                       >
                         {c.name}
                       </Link>
