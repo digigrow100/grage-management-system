@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -17,27 +19,44 @@ import { JOB_TYPE_LABELS, JOB_TYPE_TONE } from "@/lib/job-types";
 import { formatCurrency } from "@/lib/format";
 import { formatServiceDetailsSummary } from "@/lib/service-fields";
 
-function upcomingDays(count: number) {
+const WINDOW_SIZE = 5;
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function dayWindow(startIso: string, count: number) {
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const monthNames = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
   ];
   const days: { date: string; label: string }[] = [];
-  const start = new Date();
   for (let i = 0; i < count; i++) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
+    const iso = addDaysIso(startIso, i);
+    const d = new Date(`${iso}T00:00:00Z`);
     days.push({
       date: iso,
-      label: `${dayNames[d.getDay()]} ${d.getDate()} ${monthNames[d.getMonth()]}`,
+      label: `${dayNames[d.getUTCDay()]} ${d.getUTCDate()} ${monthNames[d.getUTCMonth()]}`,
     });
   }
   return days;
 }
 
-export default async function DiaryPage() {
+export default async function DiaryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ start?: string }>;
+}) {
+  const { start } = await searchParams;
+  const startIso = start && /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : todayIso();
+
   const [bookings, customers, activeCustomers, vehicles, jobCards, employees] =
     await Promise.all([
       getBookings(),
@@ -53,7 +72,9 @@ export default async function DiaryPage() {
   const jobIdByBookingId = new Map(
     jobCards.filter((j) => j.bookingId).map((j) => [j.bookingId as string, j.id])
   );
-  const days = upcomingDays(5);
+  const days = dayWindow(startIso, WINDOW_SIZE);
+  const prevStart = addDaysIso(startIso, -WINDOW_SIZE);
+  const nextStart = addDaysIso(startIso, WINDOW_SIZE);
 
   return (
     <>
@@ -62,10 +83,30 @@ export default async function DiaryPage() {
         subtitle="Upcoming booking calendar across bays and technicians"
       />
       <main className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <Link
+              href={`/diary?start=${prevStart}`}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+            >
+              <ChevronLeft size={15} />
+            </Link>
+            <Link
+              href="/diary"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+            >
+              Today
+            </Link>
+            <Link
+              href={`/diary?start=${nextStart}`}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+            >
+              <ChevronRight size={15} />
+            </Link>
+          </div>
           <BookJobButton customers={activeCustomers} employees={employees} />
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-2">
           {days.map((day) => {
             const dayBookings = bookings
               .filter((b) => b.date === day.date)

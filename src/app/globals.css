@@ -66,3 +66,13 @@ body {
     transform: translateX(0);
   }
 }
+
+/* Scrollable areas that should stay scrollable (wheel/trackpad/touch/drag)
+   without showing a visible scrollbar track. */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
