@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw, Search } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { ClickableRow } from "@/components/ui/Clickable";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { deleteJobCard } from "@/lib/supabase/mutations";
 import { jobLineTotal } from "@/lib/totals";
@@ -190,13 +191,15 @@ export function JobsBoard({
                   .join(" ");
 
                 return (
-                  <tr
+                  <ClickableRow
                     key={job.id}
+                    href={`/jobs/${job.id}`}
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
                   >
                     <td className="px-5 py-3">
                       <Link
                         href={`/jobs/${job.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="font-medium text-slate-900 hover:underline"
                       >
                         {vehicle?.registration ?? "No vehicle"}
@@ -240,7 +243,7 @@ export function JobsBoard({
                     <td className="px-5 py-3 text-right font-medium text-slate-900">
                       {formatCurrency(total)}
                     </td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <DeleteButton
                         id={job.id}
                         action={deleteJobCard}
@@ -248,7 +251,7 @@ export function JobsBoard({
                         confirmMessage={`Delete this job for ${vehicle?.registration ?? "this vehicle"}? This cannot be undone.`}
                       />
                     </td>
-                  </tr>
+                  </ClickableRow>
                 );
               })}
               {filtered.length === 0 ? (

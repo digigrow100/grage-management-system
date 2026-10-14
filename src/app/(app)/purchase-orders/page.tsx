@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { ClickableRow } from "@/components/ui/Clickable";
 import { getParts, getPurchaseOrders, getSuppliers, getWarehouses } from "@/lib/supabase/queries";
 import { CreatePurchaseOrderButton } from "@/components/forms/CreatePurchaseOrderModal";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -55,9 +56,17 @@ export default async function PurchaseOrdersPage() {
                 {orders.map((po) => {
                   const total = po.lines.reduce((sum, l) => sum + l.quantityOrdered * l.unitCost, 0);
                   return (
-                    <tr key={po.id} className="border-b border-slate-50 last:border-0">
+                    <ClickableRow
+                      key={po.id}
+                      href={`/purchase-orders/${po.id}`}
+                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                    >
                       <td className="px-5 py-3">
-                        <Link href={`/purchase-orders/${po.id}`} className="font-medium text-accent-600 hover:underline">
+                        <Link
+                          href={`/purchase-orders/${po.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium text-accent-600 hover:underline"
+                        >
                           {po.poNumber ?? po.id.slice(0, 8)}
                         </Link>
                       </td>
@@ -71,7 +80,7 @@ export default async function PurchaseOrdersPage() {
                       <td className="px-5 py-3">
                         <Badge tone={STATUS_TONE[po.status]}>{STATUS_LABELS[po.status]}</Badge>
                       </td>
-                    </tr>
+                    </ClickableRow>
                   );
                 })}
                 {orders.length === 0 ? (

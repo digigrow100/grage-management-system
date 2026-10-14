@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { ClickableRow } from "@/components/ui/Clickable";
 import { StatCard } from "@/components/ui/StatCard";
 import { getCustomers, getFeedbackRequests, getFeedbackStats } from "@/lib/supabase/queries";
 import { formatDate } from "@/lib/format";
@@ -57,12 +58,20 @@ export default async function FeedbackPage() {
                 </thead>
                 <tbody>
                   {requests.map((fr) => (
-                    <tr key={fr.id} className="border-b border-slate-50 last:border-0">
+                    <ClickableRow
+                      key={fr.id}
+                      href={`/jobs/${fr.jobId}`}
+                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                    >
                       <td className="px-5 py-3 text-slate-900">
                         {customerById.get(fr.customerId)?.name ?? "—"}
                       </td>
                       <td className="px-5 py-3">
-                        <Link href={`/jobs/${fr.jobId}`} className="text-accent-600 hover:underline">
+                        <Link
+                          href={`/jobs/${fr.jobId}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-accent-600 hover:underline"
+                        >
                           View job
                         </Link>
                       </td>
@@ -72,7 +81,7 @@ export default async function FeedbackPage() {
                       </td>
                       <td className="px-5 py-3 text-slate-500">{fr.npsScore ?? "—"}</td>
                       <td className="px-5 py-3 max-w-xs truncate text-slate-500">{fr.comment ?? ""}</td>
-                    </tr>
+                    </ClickableRow>
                   ))}
                   {requests.length === 0 ? (
                     <tr>

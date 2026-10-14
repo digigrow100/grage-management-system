@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { ClickableRow } from "@/components/ui/Clickable";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import {
   getActiveCustomers,
@@ -106,10 +107,15 @@ export default async function EstimatesPage({
                   const customer = est.customerId ? customerById.get(est.customerId) : undefined;
                   const vehicle = est.vehicleId ? vehicleById.get(est.vehicleId) : undefined;
                   return (
-                    <tr key={est.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                    <ClickableRow
+                      key={est.id}
+                      href={`/estimates/${est.id}`}
+                      className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                    >
                       <td className="px-5 py-3">
                         <Link
                           href={`/estimates/${est.id}`}
+                          onClick={(e) => e.stopPropagation()}
                           className="font-medium text-slate-900 hover:underline"
                         >
                           {est.estimateNumber ?? "—"}
@@ -129,7 +135,7 @@ export default async function EstimatesPage({
                       <td className="px-5 py-3 text-right font-medium text-slate-900">
                         {formatCurrency(est.total)}
                       </td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         {est.status !== "booked" ? (
                           <DeleteButton
                             id={est.id}
@@ -139,7 +145,7 @@ export default async function EstimatesPage({
                           />
                         ) : null}
                       </td>
-                    </tr>
+                    </ClickableRow>
                   );
                 })}
                 {filtered.length === 0 ? (

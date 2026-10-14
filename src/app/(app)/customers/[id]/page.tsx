@@ -207,9 +207,10 @@ export default async function CustomerDetailPage({
                 <p className="text-sm text-slate-400">No job history yet.</p>
               ) : (
                 jobs.map((job) => (
-                  <div
+                  <Link
                     key={job.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"
+                    href={`/jobs/${job.id}`}
+                    className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 hover:bg-slate-50"
                   >
                     <div>
                       <p className="text-sm font-medium text-slate-900">
@@ -222,7 +223,7 @@ export default async function CustomerDetailPage({
                     <Badge tone={JOB_STATUS_TONE[job.status]}>
                       {JOB_STATUS_LABELS[job.status]}
                     </Badge>
-                  </div>
+                  </Link>
                 ))
               )}
             </CardBody>

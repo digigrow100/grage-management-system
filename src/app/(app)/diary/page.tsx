@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { ClickableCard } from "@/components/ui/Clickable";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import {
   getActiveCustomers,
@@ -97,11 +97,8 @@ export default async function DiaryPage() {
                         : undefined;
                       const jobId = jobIdByBookingId.get(b.id);
                       const assignment = [b.bay, b.technician].filter(Boolean).join(" · ");
-                      return (
-                        <div
-                          key={b.id}
-                          className="rounded-lg border border-slate-100 p-2.5"
-                        >
+                      const cardBody = (
+                        <>
                           <div className="flex items-center justify-between gap-2">
                             <Badge tone={JOB_TYPE_TONE[b.jobType]}>
                               {JOB_TYPE_LABELS[b.jobType]}
@@ -146,21 +143,34 @@ export default async function DiaryPage() {
                             </span>
                             <div className="flex items-center gap-2">
                               {jobId ? (
-                                <Link
-                                  href={`/jobs/${jobId}`}
-                                  className="text-xs font-medium text-accent-600 hover:underline"
-                                >
+                                <span className="text-xs font-medium text-accent-600">
                                   View job →
-                                </Link>
+                                </span>
                               ) : null}
-                              <DeleteButton
-                                id={b.id}
-                                action={deleteBooking}
-                                label="Delete booking"
-                                confirmMessage={`Delete this booking for ${customer?.name ?? "this customer"}? This cannot be undone.`}
-                              />
+                              <span onClick={(e) => e.stopPropagation()}>
+                                <DeleteButton
+                                  id={b.id}
+                                  action={deleteBooking}
+                                  label="Delete booking"
+                                  confirmMessage={`Delete this booking for ${customer?.name ?? "this customer"}? This cannot be undone.`}
+                                />
+                              </span>
                             </div>
                           </div>
+                        </>
+                      );
+
+                      return jobId ? (
+                        <ClickableCard
+                          key={b.id}
+                          href={`/jobs/${jobId}`}
+                          className="rounded-lg border border-slate-100 p-2.5 transition-colors hover:bg-slate-50"
+                        >
+                          {cardBody}
+                        </ClickableCard>
+                      ) : (
+                        <div key={b.id} className="rounded-lg border border-slate-100 p-2.5">
+                          {cardBody}
                         </div>
                       );
                     })
