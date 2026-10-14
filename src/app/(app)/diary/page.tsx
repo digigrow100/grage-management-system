@@ -65,7 +65,7 @@ export default async function DiaryPage() {
         <div className="flex justify-end">
           <BookJobButton customers={activeCustomers} employees={employees} />
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <div className="flex gap-4 overflow-x-auto pb-2">
           {days.map((day) => {
             const dayBookings = bookings
               .filter((b) => b.date === day.date)
@@ -74,7 +74,7 @@ export default async function DiaryPage() {
                 return (a.time ?? "").localeCompare(b.time ?? "");
               });
             return (
-              <Card key={day.date} className="flex flex-col">
+              <Card key={day.date} className="flex w-72 shrink-0 flex-col">
                 <div className="border-b border-slate-100 px-4 py-3">
                   <p className="text-sm font-semibold text-slate-900">
                     {day.label}
