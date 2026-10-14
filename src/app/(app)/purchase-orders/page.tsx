@@ -2,7 +2,7 @@ import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ClickableRow } from "@/components/ui/Clickable";
+import { ClickableRow, StopPropagation } from "@/components/ui/Clickable";
 import { getParts, getPurchaseOrders, getSuppliers, getWarehouses } from "@/lib/supabase/queries";
 import { CreatePurchaseOrderButton } from "@/components/forms/CreatePurchaseOrderModal";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -62,13 +62,14 @@ export default async function PurchaseOrdersPage() {
                       className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
                     >
                       <td className="px-5 py-3">
-                        <Link
-                          href={`/purchase-orders/${po.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-medium text-accent-600 hover:underline"
-                        >
-                          {po.poNumber ?? po.id.slice(0, 8)}
-                        </Link>
+                        <StopPropagation>
+                          <Link
+                            href={`/purchase-orders/${po.id}`}
+                            className="font-medium text-accent-600 hover:underline"
+                          >
+                            {po.poNumber ?? po.id.slice(0, 8)}
+                          </Link>
+                        </StopPropagation>
                       </td>
                       <td className="px-5 py-3 text-slate-500">
                         {po.supplierId ? supplierById.get(po.supplierId)?.name ?? "—" : "—"}

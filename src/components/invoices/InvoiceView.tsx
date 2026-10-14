@@ -11,7 +11,10 @@ import { CreateCreditNoteButton } from "@/components/invoices/CreateCreditNoteMo
 import { convertEstimateToInvoice, deleteInvoice, updateInvoiceStatus } from "@/lib/supabase/mutations";
 import type { Customer, GarageSettings, Invoice, InvoiceStatus, Vehicle } from "@/lib/types";
 
-const QUICK_STATUS_OPTIONS: Exclude<InvoiceStatus, "estimate">[] = ["draft", "sent", "paid"];
+// "paid" is deliberately excluded: the database only allows an invoice to
+// become paid once its recorded payments cover the full total, which this
+// app has no UI for yet — offering it here would just fail silently.
+const QUICK_STATUS_OPTIONS: Exclude<InvoiceStatus, "estimate" | "paid">[] = ["draft", "sent"];
 
 interface InvoiceViewProps {
   invoice: Invoice;
@@ -40,13 +43,19 @@ export function InvoiceView({
   const [converting, setConverting] = useState(false);
   const [convertError, setConvertError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const next = e.target.value as Exclude<InvoiceStatus, "estimate">;
+    const next = e.target.value as Exclude<InvoiceStatus, "estimate" | "paid">;
     if (next === invoice.status || updatingStatus) return;
     setUpdatingStatus(true);
-    await updateInvoiceStatus(invoice.id, next);
+    setStatusError(null);
+    const result = await updateInvoiceStatus(invoice.id, next);
     setUpdatingStatus(false);
+    if (result.error) {
+      setStatusError(result.error);
+      return;
+    }
     router.refresh();
   }
 
@@ -124,7 +133,7 @@ export function InvoiceView({
         </Link>
         <div className="flex items-center gap-2">
           <EditInvoiceButton invoice={invoice} customers={customers} vehicles={vehicles} />
-          {invoice.status !== "estimate" ? (
+          {invoice.status !== "estimate" && invoice.status !== "paid" ? (
             <select
               aria-label="Change invoice status"
               value={invoice.status}
@@ -188,6 +197,12 @@ export function InvoiceView({
       {convertError ? (
         <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {convertError}
+        </p>
+      ) : null}
+
+      {statusError ? (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {statusError}
         </p>
       ) : null}
 

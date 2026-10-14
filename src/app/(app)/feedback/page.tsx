@@ -2,7 +2,7 @@ import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ClickableRow } from "@/components/ui/Clickable";
+import { ClickableRow, StopPropagation } from "@/components/ui/Clickable";
 import { StatCard } from "@/components/ui/StatCard";
 import { getCustomers, getFeedbackRequests, getFeedbackStats } from "@/lib/supabase/queries";
 import { formatDate } from "@/lib/format";
@@ -67,13 +67,14 @@ export default async function FeedbackPage() {
                         {customerById.get(fr.customerId)?.name ?? "—"}
                       </td>
                       <td className="px-5 py-3">
-                        <Link
-                          href={`/jobs/${fr.jobId}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-accent-600 hover:underline"
-                        >
-                          View job
-                        </Link>
+                        <StopPropagation>
+                          <Link
+                            href={`/jobs/${fr.jobId}`}
+                            className="text-accent-600 hover:underline"
+                          >
+                            View job
+                          </Link>
+                        </StopPropagation>
                       </td>
                       <td className="px-5 py-3 text-slate-500">{formatDate(fr.sentAt)}</td>
                       <td className="px-5 py-3">

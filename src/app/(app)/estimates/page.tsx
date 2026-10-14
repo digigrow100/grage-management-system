@@ -2,7 +2,7 @@ import Link from "next/link";
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ClickableRow } from "@/components/ui/Clickable";
+import { ClickableRow, StopPropagation } from "@/components/ui/Clickable";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import {
   getActiveCustomers,
@@ -113,13 +113,14 @@ export default async function EstimatesPage({
                       className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
                     >
                       <td className="px-5 py-3">
-                        <Link
-                          href={`/estimates/${est.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-medium text-slate-900 hover:underline"
-                        >
-                          {est.estimateNumber ?? "—"}
-                        </Link>
+                        <StopPropagation>
+                          <Link
+                            href={`/estimates/${est.id}`}
+                            className="font-medium text-slate-900 hover:underline"
+                          >
+                            {est.estimateNumber ?? "—"}
+                          </Link>
+                        </StopPropagation>
                       </td>
                       <td className="px-5 py-3 text-slate-700">{customer?.name ?? "—"}</td>
                       <td className="px-5 py-3 text-slate-500">{vehicle?.registration ?? "—"}</td>
@@ -135,14 +136,16 @@ export default async function EstimatesPage({
                       <td className="px-5 py-3 text-right font-medium text-slate-900">
                         {formatCurrency(est.total)}
                       </td>
-                      <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-5 py-3 text-right">
                         {est.status !== "booked" ? (
-                          <DeleteButton
-                            id={est.id}
-                            action={deleteEstimate}
-                            label={`Delete ${est.estimateNumber ?? "estimate"}`}
-                            confirmMessage={`Delete estimate ${est.estimateNumber ?? ""}? This cannot be undone.`}
-                          />
+                          <StopPropagation>
+                            <DeleteButton
+                              id={est.id}
+                              action={deleteEstimate}
+                              label={`Delete ${est.estimateNumber ?? "estimate"}`}
+                              confirmMessage={`Delete estimate ${est.estimateNumber ?? ""}? This cannot be undone.`}
+                            />
+                          </StopPropagation>
                         ) : null}
                       </td>
                     </ClickableRow>

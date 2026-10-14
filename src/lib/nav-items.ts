@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   Users,
   CalendarDays,
-  ClipboardList,
   Receipt,
   Boxes,
   BarChart3,
@@ -31,12 +30,13 @@ export interface NavItem {
 
 // Job Cards nav tab is temporarily hidden — re-add the entry below to restore it:
 // { href: "/jobs", label: "Job Cards", icon: Wrench },
+// Estimates nav tab is temporarily hidden — re-add the entry below to restore it:
+// { href: "/estimates", label: "Estimates", icon: ClipboardList },
 export const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/diary", label: "Bookings", icon: CalendarDays },
   { href: "/booking-requests", label: "Booking Requests", icon: ClipboardCheck },
-  { href: "/estimates", label: "Estimates", icon: ClipboardList },
   { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/inventory", label: "Inventory", icon: Boxes },
   { href: "/purchase-orders", label: "Purchase Orders", icon: PackageSearch, section: "Stock" },
