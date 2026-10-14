@@ -109,7 +109,7 @@ export async function addCustomer(input: AddCustomerInput): Promise<MutationResu
 
   revalidatePath("/customers");
   revalidatePath("/");
-  return {};
+  return { id: customer.id };
 }
 
 export interface CustomerDependencyCounts {
@@ -510,7 +510,7 @@ export async function addVehicle(
 
   revalidatePath(`/customers/${customerId}`);
   revalidatePath("/customers");
-  return {};
+  return { id: vehicle.id };
 }
 
 export async function updateVehicle(
@@ -595,7 +595,9 @@ export interface AddBookingInput {
   longitude?: number | null;
 }
 
-export async function addBooking(input: AddBookingInput): Promise<MutationResult> {
+export async function addBooking(
+  input: AddBookingInput
+): Promise<MutationResult & { jobId?: string }> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
   const technician = input.technician?.trim() || null;
@@ -658,24 +660,28 @@ export async function addBooking(input: AddBookingInput): Promise<MutationResult
 
   // A booking always creates its job card so the job moves through the
   // workshop board (booked -> in progress -> ... -> invoiced) from here.
-  const { error: jobError } = await supabase.from("job_cards").insert({
-    garage_id: garageId,
-    booking_id: booking.id,
-    customer_id: input.customerId,
-    status: "booked",
-    priority: input.priority ?? "medium",
-    technician,
-    description: JOB_TYPE_LABELS[input.jobType],
-    due_date: input.date,
-    notes: input.notes || null,
-  });
+  const { data: job, error: jobError } = await supabase
+    .from("job_cards")
+    .insert({
+      garage_id: garageId,
+      booking_id: booking.id,
+      customer_id: input.customerId,
+      status: "booked",
+      priority: input.priority ?? "medium",
+      technician,
+      description: JOB_TYPE_LABELS[input.jobType],
+      due_date: input.date,
+      notes: input.notes || null,
+    })
+    .select("id")
+    .single();
 
   if (jobError) return { error: jobError.message };
 
   revalidatePath("/diary");
   revalidatePath("/jobs");
   revalidatePath("/");
-  return { id: booking.id };
+  return { id: booking.id, jobId: job.id };
 }
 
 export async function deleteBooking(id: string): Promise<MutationResult> {
@@ -1145,6 +1151,13 @@ export async function updateJobLines(
   jobId: string,
   input: JobLinesInput
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageJobs");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -1279,6 +1292,60 @@ async function applyJobPartStockDelta(
   return error ? error.message : null;
 }
 
+/**
+ * Appends new part lines to a job without touching its existing lines —
+ * used when a new line item is added on an already-linked invoice and the
+ * user chooses to mirror it onto the job too. Each new line posts its own
+ * stock delta the same way updateJobLines does for a brand new line
+ * (previous quantity 0), so inventory-linked parts still move stock.
+ */
+export async function appendJobPartLines(
+  jobId: string,
+  items: { partId?: string | null; description: string; quantity: number; unitPrice: number }[]
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageJobs");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const rows = items.filter((i) => i.description.trim());
+  if (rows.length === 0) return {};
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: job, error: jobError } = await supabase
+    .from("job_cards")
+    .select("id")
+    .eq("id", jobId)
+    .eq("garage_id", garageId)
+    .maybeSingle();
+  if (jobError) return { error: jobError.message };
+  if (!job) return { error: "Job not found." };
+
+  const { error } = await supabase.from("job_part_lines").insert(
+    rows.map((i) => ({
+      garage_id: garageId,
+      job_id: jobId,
+      part_id: i.partId || null,
+      description: i.description,
+      quantity: i.quantity,
+      unit_price: i.unitPrice,
+    }))
+  );
+  if (error) return { error: error.message };
+
+  const stockError = await applyJobPartStockDelta(supabase, garageId, jobId, [], rows);
+  if (stockError) return { error: stockError };
+
+  revalidatePath("/jobs");
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath("/inventory");
+  return {};
+}
+
 export async function deleteJobCard(id: string): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
@@ -1397,6 +1464,54 @@ export async function addInvoice(input: InvoiceInput): Promise<MutationResult> {
 
   revalidatePath("/invoices");
   revalidatePath("/");
+  return { id: invoice.id };
+}
+
+/**
+ * Appends new line items to an already-created invoice without touching
+ * its existing lines — used when a new item is added to a job that's
+ * already linked to exactly one invoice and the user chooses to mirror it
+ * onto the invoice too.
+ */
+export async function appendInvoiceLineItems(
+  invoiceId: string,
+  items: { description: string; quantity: number; unitPrice: number }[]
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageInvoices");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const rows = items.filter((i) => i.description.trim());
+  if (rows.length === 0) return {};
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("id", invoiceId)
+    .eq("garage_id", garageId)
+    .maybeSingle();
+  if (invoiceError) return { error: invoiceError.message };
+  if (!invoice) return { error: "Invoice not found." };
+
+  const { error } = await supabase.from("invoice_line_items").insert(
+    rows.map((i) => ({
+      garage_id: garageId,
+      invoice_id: invoiceId,
+      description: i.description,
+      quantity: i.quantity,
+      unit_price: i.unitPrice,
+    }))
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${invoiceId}`);
   return {};
 }
 

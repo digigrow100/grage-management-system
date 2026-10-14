@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Clock, ListChecks, Plus, Trash2, Wrench } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Select, TextInput } from "@/components/ui/Field";
-import { updateJobLines } from "@/lib/supabase/mutations";
+import { appendInvoiceLineItems, updateJobLines } from "@/lib/supabase/mutations";
 import { formatCurrency } from "@/lib/format";
 import type { JobCard, Part } from "@/lib/types";
 
@@ -83,6 +83,13 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
     setSubmitting(true);
     setError(null);
 
+    // Lines added via "Add labour"/"Add part" this session carry a client-only
+    // id (dl_/dp_ prefix) — anything else came from the job's existing
+    // record. Captured before the save so a linked invoice can be offered
+    // just the new ones, not a duplicate of everything.
+    const newLabour = labourLines.filter((l) => l.id.startsWith("dl_") && l.description.trim());
+    const newParts = partLines.filter((l) => l.id.startsWith("dp_") && l.description.trim());
+
     const result = await updateJobLines(job.id, {
       labourLines: labourLines.map(({ description, hours, rate }) => ({ description, hours, rate })),
       partLines: partLines.map(({ partId, description, quantity, unitPrice }) => ({
@@ -98,6 +105,20 @@ export function EditJobLinesButton({ job, parts }: { job: JobCard; parts: Part[]
     if (result.error) {
       setError(result.error);
       return;
+    }
+
+    if (job.invoiceId && (newLabour.length > 0 || newParts.length > 0)) {
+      const count = newLabour.length + newParts.length;
+      if (
+        window.confirm(
+          `Add ${count} new item${count === 1 ? "" : "s"} to this job's linked invoice too?`
+        )
+      ) {
+        await appendInvoiceLineItems(job.invoiceId, [
+          ...newLabour.map((l) => ({ description: l.description, quantity: l.hours, unitPrice: l.rate })),
+          ...newParts.map((l) => ({ description: l.description, quantity: l.quantity, unitPrice: l.unitPrice })),
+        ]);
+      }
     }
 
     setOpen(false);

@@ -8,7 +8,7 @@ import { FieldGroup, FieldSection, TextInput } from "@/components/ui/Field";
 import { addVehicle, updateVehicle, type VehicleInput } from "@/lib/supabase/mutations";
 import type { Vehicle } from "@/lib/types";
 
-interface DvlaVehicleSummary {
+export interface DvlaVehicleSummary {
   make?: string;
   colour?: string;
   fuelType?: string;
@@ -26,7 +26,7 @@ interface DvlaVehicleSummary {
   markedForExport?: boolean;
 }
 
-function emptyDraft(registration = ""): VehicleInput {
+export function emptyDraft(registration = ""): VehicleInput {
   return {
     registration,
     make: "",
@@ -66,7 +66,7 @@ function draftFromVehicle(v: Vehicle): VehicleInput {
   };
 }
 
-function applyDvlaResult(draft: VehicleInput, dvla: DvlaVehicleSummary): VehicleInput {
+export function applyDvlaResult(draft: VehicleInput, dvla: DvlaVehicleSummary): VehicleInput {
   return {
     ...draft,
     make: dvla.make || draft.make,
@@ -88,7 +88,7 @@ function applyDvlaResult(draft: VehicleInput, dvla: DvlaVehicleSummary): Vehicle
   };
 }
 
-function VehicleFields({
+export function VehicleFields({
   draft,
   setDraft,
 }: {
