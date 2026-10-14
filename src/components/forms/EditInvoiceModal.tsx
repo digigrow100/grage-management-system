@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { FieldGroup, Select, TextArea, TextInput } from "@/components/ui/Field";
-import { updateInvoice } from "@/lib/supabase/mutations";
+import { appendJobPartLines, updateInvoice } from "@/lib/supabase/mutations";
 import { formatCurrency } from "@/lib/format";
 import type { Customer, Invoice, InvoiceStatus, Vehicle } from "@/lib/types";
 
@@ -87,6 +87,12 @@ export function EditInvoiceButton({
     setSubmitting(true);
     setError(null);
 
+    // Lines added via "Add line" this session carry a client-only
+    // draft_ id — anything else came from the invoice's existing record.
+    // Captured before the save so a single linked job can be offered just
+    // the new ones, not a duplicate of the whole invoice.
+    const newLines = lineItems.filter((li) => li.id.startsWith("draft_") && li.description.trim());
+
     const formData = new FormData(e.currentTarget);
     const result = await updateInvoice(invoice.id, {
       customerId,
@@ -108,6 +114,19 @@ export function EditInvoiceButton({
     if (result.error) {
       setError(result.error);
       return;
+    }
+
+    if (invoice.jobIds.length === 1 && newLines.length > 0) {
+      if (
+        window.confirm(
+          `Add ${newLines.length} new item${newLines.length === 1 ? "" : "s"} to this invoice's linked job too?`
+        )
+      ) {
+        await appendJobPartLines(
+          invoice.jobIds[0],
+          newLines.map((l) => ({ description: l.description, quantity: l.quantity, unitPrice: l.unitPrice }))
+        );
+      }
     }
 
     setOpen(false);
