@@ -36,9 +36,13 @@ import { cn } from "@/lib/cn";
 export function BookJobButton({
   customers,
   employees,
+  triggerClassName,
+  children,
 }: {
   customers: Customer[];
   employees: Employee[];
+  triggerClassName?: string;
+  children?: React.ReactNode;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -160,9 +164,16 @@ export function BookJobButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg bg-accent-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm shadow-accent-600/30 transition-colors hover:bg-accent-700"
+        className={
+          triggerClassName ??
+          "flex items-center gap-2 rounded-lg bg-accent-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm shadow-accent-600/30 transition-colors hover:bg-accent-700"
+        }
       >
-        <Plus size={15} /> New booking
+        {children ?? (
+          <>
+            <Plus size={15} /> New booking
+          </>
+        )}
       </button>
 
       <Modal

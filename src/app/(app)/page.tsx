@@ -3,9 +3,12 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import {
+  getActiveCustomers,
   getBookings,
   getCreditNotes,
   getCustomers,
+  getEmployees,
+  getGarageSettings,
   getInvoices,
   getJobCards,
   getParts,
@@ -15,7 +18,9 @@ import { creditedTotalsByInvoice, netInvoiceTotals } from "@/lib/totals";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/format";
 import { JOB_TYPE_LABELS, JOB_TYPE_TONE } from "@/lib/job-types";
 import { JOB_STATUS_LABELS, JOB_STATUS_TONE } from "@/lib/job-status";
-import { CalendarClock, Users, Wrench, Boxes } from "lucide-react";
+import { AddCustomerButton } from "@/components/forms/AddCustomerModal";
+import { BookJobButton } from "@/components/forms/BookJobModal";
+import { CalendarClock, Users, Wrench, Boxes, UserPlus, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 function today(): string {
@@ -23,16 +28,29 @@ function today(): string {
 }
 
 export default async function DashboardPage() {
-  const [customers, vehicles, bookings, jobCards, invoices, parts, creditNotes] =
-    await Promise.all([
-      getCustomers(),
-      getVehicles(),
-      getBookings(),
-      getJobCards(),
-      getInvoices(),
-      getParts(),
-      getCreditNotes(),
-    ]);
+  const [
+    customers,
+    activeCustomers,
+    vehicles,
+    bookings,
+    jobCards,
+    invoices,
+    parts,
+    creditNotes,
+    employees,
+    garage,
+  ] = await Promise.all([
+    getCustomers(),
+    getActiveCustomers(),
+    getVehicles(),
+    getBookings(),
+    getJobCards(),
+    getInvoices(),
+    getParts(),
+    getCreditNotes(),
+    getEmployees(),
+    getGarageSettings(),
+  ]);
   const creditedByInvoice = creditedTotalsByInvoice(creditNotes);
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
@@ -74,6 +92,43 @@ export default async function DashboardPage() {
         subtitle="Overview of today's workshop activity"
       />
       <main className="flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <AddCustomerButton
+            employees={employees}
+            parts={parts}
+            defaultVatRate={garage.defaultVatRate}
+            triggerClassName="group flex items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-br from-accent-600 to-accent-700 px-5 py-4 text-left text-white shadow-lg shadow-accent-600/25 transition-transform hover:-translate-y-0.5 hover:shadow-xl"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15">
+              <UserPlus size={20} />
+            </span>
+            <span className="flex-1">
+              <span className="block text-sm font-semibold">Add Customer</span>
+              <span className="block text-xs text-white/80">
+                New customer — vehicle, booking &amp; invoice follow
+              </span>
+            </span>
+            <ArrowRight size={16} className="shrink-0 text-white/70 transition-transform group-hover:translate-x-0.5" />
+          </AddCustomerButton>
+
+          <BookJobButton
+            customers={activeCustomers}
+            employees={employees}
+            triggerClassName="group flex items-center gap-4 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-600 to-violet-700 px-5 py-4 text-left text-white shadow-lg shadow-violet-600/25 transition-transform hover:-translate-y-0.5 hover:shadow-xl"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15">
+              <CalendarClock size={20} />
+            </span>
+            <span className="flex-1">
+              <span className="block text-sm font-semibold">Add New Booking</span>
+              <span className="block text-xs text-white/80">
+                Already a customer? Book them in directly
+              </span>
+            </span>
+            <ArrowRight size={16} className="shrink-0 text-white/70 transition-transform group-hover:translate-x-0.5" />
+          </BookJobButton>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Today's bookings"

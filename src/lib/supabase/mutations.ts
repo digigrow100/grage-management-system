@@ -1587,6 +1587,32 @@ export async function convertEstimateToInvoice(id: string): Promise<MutationResu
   return {};
 }
 
+/**
+ * Quick status change from the invoice preview — draft/sent/paid only,
+ * never "estimate" (that has its own convert flow).
+ */
+export async function updateInvoiceStatus(
+  id: string,
+  status: Exclude<InvoiceStatus, "estimate">
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { error } = await supabase
+    .from("invoices")
+    .update({ status })
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .neq("status", "estimate");
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${id}`);
+  revalidatePath("/");
+  return {};
+}
+
 export async function deleteInvoice(id: string): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
