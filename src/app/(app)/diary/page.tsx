@@ -1,7 +1,7 @@
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { ClickableCard } from "@/components/ui/Clickable";
+import { ClickableCard, StopPropagation } from "@/components/ui/Clickable";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import {
   getActiveCustomers,
@@ -147,14 +147,14 @@ export default async function DiaryPage() {
                                   View job →
                                 </span>
                               ) : null}
-                              <span onClick={(e) => e.stopPropagation()}>
+                              <StopPropagation>
                                 <DeleteButton
                                   id={b.id}
                                   action={deleteBooking}
                                   label="Delete booking"
                                   confirmMessage={`Delete this booking for ${customer?.name ?? "this customer"}? This cannot be undone.`}
                                 />
-                              </span>
+                              </StopPropagation>
                             </div>
                           </div>
                         </>

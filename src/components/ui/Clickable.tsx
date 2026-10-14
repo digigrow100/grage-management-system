@@ -43,3 +43,24 @@ export function ClickableCard({
     </div>
   );
 }
+
+/**
+ * Stops a click from reaching an ancestor ClickableRow/ClickableCard. Needed
+ * whenever that ancestor's page is a Server Component — a plain element
+ * there can't carry its own onClick (functions aren't serializable across
+ * the server/client boundary), so the interactive child is wrapped in this
+ * small Client Component instead.
+ */
+export function StopPropagation({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <span onClick={(e) => e.stopPropagation()} className={className}>
+      {children}
+    </span>
+  );
+}
