@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Archive, ArchiveRestore, ChevronDown, Loader2, Search } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { ClickableRow } from "@/components/ui/Clickable";
 import { DeleteCustomerButton } from "@/components/customers/DeleteCustomerButton";
 import { restoreCustomer } from "@/lib/supabase/mutations";
 import { formatDate } from "@/lib/format";
@@ -96,13 +97,15 @@ export function CustomersTable({
               {filtered.map((c) => {
                 const customerVehicles = vehiclesByCustomer.get(c.id) ?? [];
                 return (
-                  <tr
+                  <ClickableRow
                     key={c.id}
+                    href={`/customers/${c.id}`}
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
                   >
                     <td className="px-5 py-3">
                       <Link
                         href={`/customers/${c.id}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="font-medium text-slate-900 hover:underline"
                       >
                         {customerDisplayName(c)}
@@ -126,10 +129,10 @@ export function CustomersTable({
                       ) : null}
                     </td>
                     <td className="px-5 py-3 text-slate-500">{formatDate(c.createdAt)}</td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <DeleteCustomerButton customerId={c.id} customerName={c.name} />
                     </td>
-                  </tr>
+                  </ClickableRow>
                 );
               })}
               {filtered.length === 0 ? (
@@ -167,15 +170,19 @@ export function CustomersTable({
               <table className="w-full text-sm">
                 <tbody>
                   {archivedCustomers.map((c) => (
-                    <tr key={c.id} className="border-b border-slate-50 last:border-0">
+                    <ClickableRow
+                      key={c.id}
+                      href={`/customers/${c.id}`}
+                      className="border-b border-slate-50 last:border-0"
+                    >
                       <td className="px-5 py-3 font-medium text-slate-700">
                       {customerDisplayName(c)}
                     </td>
                       <td className="px-5 py-3 text-slate-500">{c.email}</td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-5 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <RestoreButton customerId={c.id} />
                       </td>
-                    </tr>
+                    </ClickableRow>
                   ))}
                 </tbody>
               </table>

@@ -1,5 +1,6 @@
 import { TopBar } from "@/components/layout/TopBar";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { ClickableRow } from "@/components/ui/Clickable";
 import { StatCard } from "@/components/ui/StatCard";
 import { getCreditNotes, getInvoices, getJobCards, getParts } from "@/lib/supabase/queries";
 import { creditedTotalsByInvoice, netInvoiceTotals } from "@/lib/totals";
@@ -117,12 +118,16 @@ export default async function AccountingPage() {
                   {recentPaid.map((inv) => {
                     const { vat, total } = netInvoiceTotals(inv, creditedByInvoice);
                     return (
-                      <tr key={inv.id} className="border-b border-slate-50 last:border-0">
+                      <ClickableRow
+                        key={inv.id}
+                        href={`/invoices/${inv.id}`}
+                        className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                      >
                         <td className="px-5 py-3 font-medium text-slate-900">{inv.number}</td>
                         <td className="px-5 py-3 text-slate-500">{formatDate(inv.date)}</td>
                         <td className="px-5 py-3 text-slate-500">{formatCurrency(vat)}</td>
                         <td className="px-5 py-3 text-right font-medium">{formatCurrency(total)}</td>
-                      </tr>
+                      </ClickableRow>
                     );
                   })}
                   {recentPaid.length === 0 ? (

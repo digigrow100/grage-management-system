@@ -1,6 +1,7 @@
 import { TopBar } from "@/components/layout/TopBar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { ClickableRow } from "@/components/ui/Clickable";
 import { StatCard } from "@/components/ui/StatCard";
 import { getBookings, getCreditNotes, getCustomers, getInvoices } from "@/lib/supabase/queries";
 import { creditedTotalsByInvoice, netInvoiceTotals } from "@/lib/totals";
@@ -116,7 +117,11 @@ export default async function CustomerIntelligencePage() {
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.customer.id} className="border-b border-slate-50 last:border-0">
+                  <ClickableRow
+                    key={r.customer.id}
+                    href={`/customers/${r.customer.id}`}
+                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                  >
                     <td className="px-5 py-3">
                       <p className="font-medium text-slate-900">{r.customer.name}</p>
                       <p className="text-xs text-slate-500">{r.customer.email}</p>
@@ -131,7 +136,7 @@ export default async function CustomerIntelligencePage() {
                     <td className="px-5 py-3 text-right font-medium text-slate-900">
                       {formatCurrency(r.totalSpend)}
                     </td>
-                  </tr>
+                  </ClickableRow>
                 ))}
                 {rows.length === 0 ? (
                   <tr>
