@@ -8,8 +8,10 @@ import { InvoicePaper, A4_WIDTH_PX, A4_HEIGHT_PX } from "./InvoicePaper";
 import { EditInvoiceButton } from "@/components/forms/EditInvoiceModal";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CreateCreditNoteButton } from "@/components/invoices/CreateCreditNoteModal";
-import { convertEstimateToInvoice, deleteInvoice } from "@/lib/supabase/mutations";
-import type { Customer, GarageSettings, Invoice, Vehicle } from "@/lib/types";
+import { convertEstimateToInvoice, deleteInvoice, updateInvoiceStatus } from "@/lib/supabase/mutations";
+import type { Customer, GarageSettings, Invoice, InvoiceStatus, Vehicle } from "@/lib/types";
+
+const QUICK_STATUS_OPTIONS: Exclude<InvoiceStatus, "estimate">[] = ["draft", "sent", "paid"];
 
 interface InvoiceViewProps {
   invoice: Invoice;
@@ -37,6 +39,16 @@ export function InvoiceView({
   const [downloading, setDownloading] = useState(false);
   const [converting, setConverting] = useState(false);
   const [convertError, setConvertError] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const next = e.target.value as Exclude<InvoiceStatus, "estimate">;
+    if (next === invoice.status || updatingStatus) return;
+    setUpdatingStatus(true);
+    await updateInvoiceStatus(invoice.id, next);
+    setUpdatingStatus(false);
+    router.refresh();
+  }
 
   async function handleConvert() {
     if (converting) return;
@@ -112,6 +124,26 @@ export function InvoiceView({
         </Link>
         <div className="flex items-center gap-2">
           <EditInvoiceButton invoice={invoice} customers={customers} vehicles={vehicles} />
+          {invoice.status !== "estimate" ? (
+            <select
+              aria-label="Change invoice status"
+              value={invoice.status}
+              onChange={handleStatusChange}
+              disabled={updatingStatus}
+              className="capitalize rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
+            >
+              {QUICK_STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s} className="capitalize">
+                  {s}
+                </option>
+              ))}
+              {invoice.status === "overdue" ? (
+                <option value="overdue" className="capitalize">
+                  overdue
+                </option>
+              ) : null}
+            </select>
+          ) : null}
           <DeleteButton
             id={invoice.id}
             action={deleteInvoice}
