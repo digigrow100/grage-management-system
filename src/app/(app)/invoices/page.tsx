@@ -23,7 +23,7 @@ export default async function InvoicesPage() {
   return (
     <>
       <TopBar
-        title="Estimates & Invoicing"
+        title="Invoices"
         subtitle={`${invoices.length} invoices`}
       />
       <main className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">

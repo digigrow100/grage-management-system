@@ -11,7 +11,7 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "What's the difference between an estimate and an invoice?",
     answer:
-      "An estimate is a quote sent before work is confirmed. From the Estimates & Invoicing page click \"New estimate\", and once the customer approves it, open the estimate and click \"Convert to Invoice\".",
+      "An estimate is a quote sent before work is confirmed. From the Invoices page click \"New estimate\", and once the customer approves it, open the estimate and click \"Convert to Invoice\".",
   },
   {
     question: "How do I mark a part as low stock?",
