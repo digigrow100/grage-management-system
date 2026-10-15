@@ -462,7 +462,16 @@ export function AddCustomerButton({
       return;
     }
 
-    handleClose();
+    // Close the wizard and go straight to the new invoice's own preview —
+    // where it can be downloaded or edited further — instead of leaving
+    // the user back on whatever page they opened the wizard from.
+    setOpen(false);
+    resetAll();
+    if (result.id) {
+      router.push(`/invoices/${result.id}`);
+    } else {
+      router.refresh();
+    }
   }
 
   function skipInvoice() {
