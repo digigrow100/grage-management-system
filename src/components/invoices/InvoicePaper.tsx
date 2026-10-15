@@ -115,7 +115,7 @@ export const InvoicePaper = forwardRef<HTMLDivElement, InvoicePaperProps>(
             </p>
             <p style={{ color: "#64748b", margin: "2px 0 0" }}>{customer?.email}</p>
           </div>
-          <div>
+          <div style={{ textAlign: "right" }}>
             <p style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", margin: 0, letterSpacing: 0.5 }}>
               Vehicle
             </p>
