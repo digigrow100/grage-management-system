@@ -98,6 +98,7 @@ export function Select({
       ) : null}
       <select
         {...props}
+        style={{ colorScheme: "light", ...props.style }}
         className={cn(
           controlBase,
           "appearance-none py-2.5 pr-9",

@@ -96,6 +96,7 @@ export default async function DashboardPage() {
           <AddCustomerButton
             employees={employees}
             parts={parts}
+            vehicles={vehicles}
             defaultVatRate={garage.defaultVatRate}
             triggerClassName="group flex items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-br from-accent-600 to-accent-700 px-5 py-4 text-left text-white shadow-lg shadow-accent-600/25 transition-transform hover:-translate-y-0.5 hover:shadow-xl"
           >
@@ -115,6 +116,7 @@ export default async function DashboardPage() {
             customers={activeCustomers}
             employees={employees}
             parts={parts}
+            vehicles={vehicles}
             defaultVatRate={garage.defaultVatRate}
             triggerClassName="group flex items-center gap-4 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-600 to-violet-700 px-5 py-4 text-left text-white shadow-lg shadow-violet-600/25 transition-transform hover:-translate-y-0.5 hover:shadow-xl"
           >

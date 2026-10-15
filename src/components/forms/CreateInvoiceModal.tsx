@@ -10,6 +10,7 @@ import {
   FileText,
   Percent,
   Plus,
+  PoundSterling,
   Receipt,
   Square,
   Trash2,
@@ -325,6 +326,7 @@ export function CreateInvoiceButton({
                     <TextInput
                       aria-label="Unit price"
                       type="number"
+                      icon={PoundSterling}
                       min="0"
                       step="0.01"
                       placeholder="Unit price"
