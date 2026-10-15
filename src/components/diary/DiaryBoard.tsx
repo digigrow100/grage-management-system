@@ -20,11 +20,13 @@ const MONTH_NAMES = [
 // The strip renders a single continuous range of days — today minus/plus
 // this many, by default — so cursor-drag alone can reach every date with
 // no "wall" to hit. If any booking falls outside that default range, the
-// range is widened to include it (clamped so a stray old/far test booking
-// can't blow the render up).
+// range is widened to include it, so every real booking stays reachable.
+// MAX_SPAN_DAYS is only a defensive outer bound against a corrupted date
+// (e.g. a bad year) blowing up the render — it's far beyond any realistic
+// booking history/lead time, so it should never clip an actual booking.
 const DEFAULT_PAST_DAYS = 14;
 const DEFAULT_FUTURE_DAYS = 60;
-const MAX_SPAN_DAYS = 180;
+const MAX_SPAN_DAYS = 3650;
 const CARD_WIDTH = 288; // w-72
 const GAP = 16; // gap-4
 const JUMP_DAYS = 5;
