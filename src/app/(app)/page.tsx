@@ -114,6 +114,8 @@ export default async function DashboardPage() {
           <BookJobButton
             customers={activeCustomers}
             employees={employees}
+            parts={parts}
+            defaultVatRate={garage.defaultVatRate}
             triggerClassName="group flex items-center gap-4 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-600 to-violet-700 px-5 py-4 text-left text-white shadow-lg shadow-violet-600/25 transition-transform hover:-translate-y-0.5 hover:shadow-xl"
           >
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15">
