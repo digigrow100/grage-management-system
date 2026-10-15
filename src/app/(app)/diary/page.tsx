@@ -42,6 +42,7 @@ export default async function DiaryPage() {
               customers={activeCustomers}
               employees={employees}
               parts={parts}
+              vehicles={vehicles}
               defaultVatRate={garage.defaultVatRate}
             />
           }

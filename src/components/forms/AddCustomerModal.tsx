@@ -6,6 +6,7 @@ import {
   Building2,
   Calendar,
   CalendarClock,
+  Car,
   CheckCircle2,
   Clock,
   ClipboardList,
@@ -57,7 +58,7 @@ import {
   type StorageFormValues,
 } from "@/lib/service-fields";
 import { formatCurrency } from "@/lib/format";
-import type { BookingLocationType, CustomerType, Employee, JobPriority, JobType, Part } from "@/lib/types";
+import type { BookingLocationType, CustomerType, Employee, JobPriority, JobType, Part, Vehicle } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 type WizardStep = "customer" | "vehicle" | "booking" | "items" | "invoice";
@@ -107,12 +108,14 @@ function newInvoiceLine(description = "", quantity = 1, unitPrice = 0): DraftInv
 export function AddCustomerButton({
   employees = [],
   parts = [],
+  vehicles = [],
   defaultVatRate = 20,
   triggerClassName,
   children,
 }: {
   employees?: Employee[];
   parts?: Part[];
+  vehicles?: Vehicle[];
   defaultVatRate?: number;
   triggerClassName?: string;
   children?: React.ReactNode;
@@ -420,6 +423,27 @@ export function AddCustomerButton({
   }
 
   // ---- Step 5: invoice ----
+  // The vehicle created in step 2 isn't in the `vehicles` prop yet (that's a
+  // page-load snapshot) — add it as a synthetic option so it's selectable
+  // here the same way an existing vehicle would be.
+  const vehicleOptions: { id: string; registration: string; make: string | null; model: string | null }[] =
+    (() => {
+      const fromProps = vehicles
+        .filter((v) => v.customerId === customerId)
+        .map((v) => ({ id: v.id, registration: v.registration, make: v.make, model: v.model }));
+      if (vehicleId && !fromProps.some((v) => v.id === vehicleId)) {
+        return [
+          {
+            id: vehicleId,
+            registration: vehicleDraft.registration || "New vehicle",
+            make: vehicleDraft.make ?? null,
+            model: vehicleDraft.model ?? null,
+          },
+          ...fromProps,
+        ];
+      }
+      return fromProps;
+    })();
   const subtotal = invoiceLines.reduce((sum, li) => sum + li.quantity * li.unitPrice, 0);
   const vat = subtotal * (vatRate / 100);
   const total = subtotal + vat;
@@ -918,6 +942,7 @@ export function AddCustomerButton({
                       <TextInput
                         aria-label="Rate per hour"
                         type="number"
+                        icon={PoundSterling}
                         min="0"
                         step="0.01"
                         placeholder="Rate/hr"
@@ -989,6 +1014,7 @@ export function AddCustomerButton({
                       <TextInput
                         aria-label="Unit price"
                         type="number"
+                        icon={PoundSterling}
                         min="0"
                         step="0.01"
                         placeholder="Unit price"
@@ -1063,6 +1089,34 @@ export function AddCustomerButton({
             </p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldGroup label="Customer" htmlFor="invoiceCustomer">
+                <Select id="invoiceCustomer" icon={User} value={customerName} disabled>
+                  <option>{customerName || "—"}</option>
+                </Select>
+              </FieldGroup>
+              <FieldGroup label="Vehicle" htmlFor="vehicle">
+                <Select
+                  id="vehicle"
+                  name="vehicle"
+                  icon={Car}
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                  disabled={vehicleOptions.length === 0}
+                >
+                  <option value="">
+                    {vehicleOptions.length > 0 ? "No vehicle (optional)" : "No vehicle on record"}
+                  </option>
+                  {vehicleOptions.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.registration}
+                      {v.make ? ` · ${v.make}${v.model ? ` ${v.model}` : ""}` : ""}
+                    </option>
+                  ))}
+                </Select>
+              </FieldGroup>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FieldGroup label="Invoice Date" htmlFor="invoiceDate" required>
                 <TextInput id="invoiceDate" name="invoiceDate" type="date" icon={Calendar} required />
               </FieldGroup>
@@ -1111,6 +1165,7 @@ export function AddCustomerButton({
                       <TextInput
                         aria-label="Unit price"
                         type="number"
+                        icon={PoundSterling}
                         min="0"
                         step="0.01"
                         placeholder="Unit price"

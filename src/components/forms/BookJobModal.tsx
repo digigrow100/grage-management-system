@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Calendar,
   CalendarClock,
+  Car,
   Clock,
   ClipboardList,
   DoorOpen,
@@ -36,7 +37,7 @@ import {
   type StorageFormValues,
 } from "@/lib/service-fields";
 import { formatCurrency } from "@/lib/format";
-import type { BookingLocationType, Customer, Employee, JobPriority, JobType, Part } from "@/lib/types";
+import type { BookingLocationType, Customer, Employee, JobPriority, JobType, Part, Vehicle } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
 type WizardStep = "booking" | "items" | "invoice";
@@ -86,12 +87,14 @@ export function BookJobButton({
   employees,
   parts = [],
   defaultVatRate = 20,
+  vehicles = [],
   triggerClassName,
   children,
 }: {
   customers: Customer[];
   employees: Employee[];
   parts?: Part[];
+  vehicles?: Vehicle[];
   defaultVatRate?: number;
   triggerClassName?: string;
   children?: React.ReactNode;
@@ -106,6 +109,7 @@ export function BookJobButton({
 
   // Carried across steps once created.
   const [customerId, setCustomerId] = useState("");
+  const [vehicleId, setVehicleId] = useState("");
   const [jobId, setJobId] = useState("");
 
   // Step: booking
@@ -135,6 +139,7 @@ export function BookJobButton({
   function resetAll() {
     setStep("booking");
     setCustomerId("");
+    setVehicleId("");
     setJobId("");
     setJobType("");
     setEstPrice("");
@@ -307,6 +312,8 @@ export function BookJobButton({
   }
 
   // ---- Step 3: invoice ----
+  const customerName = customers.find((c) => c.id === customerId)?.name ?? "";
+  const vehicleOptions = vehicles.filter((v) => v.customerId === customerId);
   const subtotal = invoiceLines.reduce((sum, li) => sum + li.quantity * li.unitPrice, 0);
   const vat = subtotal * (vatRate / 100);
   const total = subtotal + vat;
@@ -329,7 +336,7 @@ export function BookJobButton({
     const formData = new FormData(e.currentTarget);
     const result = await addInvoice({
       customerId,
-      vehicleId: "",
+      vehicleId,
       invoiceDate: String(formData.get("invoiceDate") ?? ""),
       dueDate: String(formData.get("dueDate") ?? ""),
       vatRate,
@@ -630,6 +637,7 @@ export function BookJobButton({
                       <TextInput
                         aria-label="Rate per hour"
                         type="number"
+                        icon={PoundSterling}
                         min="0"
                         step="0.01"
                         placeholder="Rate/hr"
@@ -701,6 +709,7 @@ export function BookJobButton({
                       <TextInput
                         aria-label="Unit price"
                         type="number"
+                        icon={PoundSterling}
                         min="0"
                         step="0.01"
                         placeholder="Unit price"
@@ -775,6 +784,34 @@ export function BookJobButton({
             </p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FieldGroup label="Customer" htmlFor="invoiceCustomer">
+                <Select id="invoiceCustomer" icon={User} value={customerName} disabled>
+                  <option>{customerName || "—"}</option>
+                </Select>
+              </FieldGroup>
+              <FieldGroup label="Vehicle" htmlFor="vehicle">
+                <Select
+                  id="vehicle"
+                  name="vehicle"
+                  icon={Car}
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                  disabled={vehicleOptions.length === 0}
+                >
+                  <option value="">
+                    {vehicleOptions.length > 0 ? "No vehicle (optional)" : "No vehicle on record"}
+                  </option>
+                  {vehicleOptions.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.registration}
+                      {v.make ? ` · ${v.make}${v.model ? ` ${v.model}` : ""}` : ""}
+                    </option>
+                  ))}
+                </Select>
+              </FieldGroup>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FieldGroup label="Invoice Date" htmlFor="invoiceDate" required>
                 <TextInput id="invoiceDate" name="invoiceDate" type="date" icon={Calendar} required />
               </FieldGroup>
@@ -823,6 +860,7 @@ export function BookJobButton({
                       <TextInput
                         aria-label="Unit price"
                         type="number"
+                        icon={PoundSterling}
                         min="0"
                         step="0.01"
                         placeholder="Unit price"

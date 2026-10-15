@@ -28,7 +28,12 @@ export default async function CustomersPage() {
       />
       <main className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
         <div className="flex justify-end">
-          <AddCustomerButton employees={employees} parts={parts} defaultVatRate={garage.defaultVatRate} />
+          <AddCustomerButton
+            employees={employees}
+            parts={parts}
+            vehicles={vehicles}
+            defaultVatRate={garage.defaultVatRate}
+          />
         </div>
         <CustomersTable
           customers={customers}
