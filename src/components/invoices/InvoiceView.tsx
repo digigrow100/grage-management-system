@@ -3,12 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRightLeft, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, Download, Loader2, Send } from "lucide-react";
 import { InvoicePaper, A4_WIDTH_PX, A4_HEIGHT_PX } from "./InvoicePaper";
 import { EditInvoiceButton } from "@/components/forms/EditInvoiceModal";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CreateCreditNoteButton } from "@/components/invoices/CreateCreditNoteModal";
-import { convertEstimateToInvoice, deleteInvoice, updateInvoiceStatus } from "@/lib/supabase/mutations";
+import {
+  convertEstimateToInvoice,
+  deleteInvoice,
+  sendInvoiceEmail,
+  updateInvoiceStatus,
+} from "@/lib/supabase/mutations";
 import type { Customer, GarageSettings, Invoice, InvoiceStatus, Vehicle } from "@/lib/types";
 
 // "paid" is deliberately excluded: the database only allows an invoice to
@@ -44,6 +49,9 @@ export function InvoiceView({
   const [convertError, setConvertError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendSuccess, setSendSuccess] = useState(false);
 
   async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const next = e.target.value as Exclude<InvoiceStatus, "estimate" | "paid">;
@@ -87,38 +95,69 @@ export function InvoiceView({
     return () => observer.disconnect();
   }, []);
 
+  async function renderPdf() {
+    if (!paperRef.current) return null;
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+      import("html2canvas-pro"),
+      import("jspdf"),
+    ]);
+
+    const canvas = await html2canvas(paperRef.current, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+    });
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+    pdf.addImage(
+      canvas.toDataURL("image/png"),
+      "PNG",
+      0,
+      0,
+      210,
+      297,
+      undefined,
+      "FAST"
+    );
+    return pdf;
+  }
+
   async function handleDownload() {
-    if (!paperRef.current || downloading) return;
+    if (downloading) return;
     setDownloading(true);
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas-pro"),
-        import("jspdf"),
-      ]);
-
-      const canvas = await html2canvas(paperRef.current, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-      });
-
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-      pdf.addImage(
-        canvas.toDataURL("image/png"),
-        "PNG",
-        0,
-        0,
-        210,
-        297,
-        undefined,
-        "FAST"
-      );
-      pdf.save(`${invoice.number}.pdf`);
+      const pdf = await renderPdf();
+      pdf?.save(`${invoice.number}.pdf`);
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function handleSend() {
+    if (sending) return;
+    setSending(true);
+    setSendError(null);
+    setSendSuccess(false);
+    try {
+      const pdf = await renderPdf();
+      if (!pdf) {
+        setSendError("Could not prepare the PDF.");
+        return;
+      }
+      const dataUri = pdf.output("datauristring");
+      const base64 = dataUri.slice(dataUri.indexOf(",") + 1);
+      const result = await sendInvoiceEmail(invoice.id, base64);
+      if (result.error) {
+        setSendError(result.error);
+        return;
+      }
+      setSendSuccess(true);
+      router.refresh();
+    } finally {
+      setSending(false);
     }
   }
 
@@ -178,6 +217,22 @@ export function InvoiceView({
           {invoice.status !== "estimate" && invoice.status !== "draft" ? (
             <CreateCreditNoteButton invoice={invoice} />
           ) : null}
+          {invoice.status !== "estimate" ? (
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={sending || !customer?.email}
+              title={!customer?.email ? "This customer has no email address on file" : undefined}
+              className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
+            >
+              {sending ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <Send size={15} />
+              )}
+              {sending ? "Sending..." : "Send to Client"}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={handleDownload}
@@ -203,6 +258,18 @@ export function InvoiceView({
       {statusError ? (
         <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {statusError}
+        </p>
+      ) : null}
+
+      {sendError ? (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {sendError}
+        </p>
+      ) : null}
+
+      {sendSuccess ? (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          Invoice emailed to {customer?.email}.
         </p>
       ) : null}
 
