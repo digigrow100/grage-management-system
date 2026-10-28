@@ -1613,6 +1613,94 @@ export async function updateInvoiceStatus(
   return {};
 }
 
+/**
+ * Emails an invoice PDF to its customer over the garage's own SMTP account
+ * (no third-party email API involved). The PDF is generated client-side
+ * (same html2canvas/jsPDF path as "Download PDF") and handed in as base64
+ * so this action only has to send it, not render it.
+ */
+export async function sendInvoiceEmail(
+  invoiceId: string,
+  pdfBase64: string
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageInvoices");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const host = process.env.SMTP_HOST;
+  const port = process.env.SMTP_PORT;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+  if (!host || !port || !user || !pass) {
+    return { error: "Email sending isn't set up yet. Ask your administrator to configure SMTP." };
+  }
+
+  const supabase = await createClient();
+  const garageId = await getCurrentGarageId();
+
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("invoices")
+    .select("id, number, customer_id, status")
+    .eq("id", invoiceId)
+    .eq("garage_id", garageId)
+    .single();
+  if (invoiceError || !invoice) return { error: "Invoice not found." };
+
+  const { data: customer, error: customerError } = await supabase
+    .from("customers")
+    .select("full_name, email")
+    .eq("id", invoice.customer_id)
+    .single();
+  if (customerError || !customer?.email) {
+    return { error: "This customer has no email address on file." };
+  }
+
+  const { data: garage } = await supabase
+    .from("garage_settings")
+    .select("garage_name")
+    .eq("id", garageId)
+    .single();
+  const garageName = garage?.garage_name ?? "Garage";
+
+  const { default: nodemailer } = await import("nodemailer");
+  const transporter = nodemailer.createTransport({
+    host,
+    port: Number(port),
+    secure: Number(port) === 465,
+    auth: { user, pass },
+  });
+
+  try {
+    await transporter.sendMail({
+      from: `"${garageName}" <${from}>`,
+      to: customer.email,
+      subject: `Invoice ${invoice.number} from ${garageName}`,
+      text: `Hi ${customer.full_name},\n\nPlease find attached invoice ${invoice.number}.\n\nThank you for your business.\n\n${garageName}`,
+      attachments: [
+        {
+          filename: `${invoice.number}.pdf`,
+          content: Buffer.from(pdfBase64, "base64"),
+          contentType: "application/pdf",
+        },
+      ],
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to send email." };
+  }
+
+  if (invoice.status === "draft") {
+    await supabase.from("invoices").update({ status: "sent" }).eq("id", invoiceId);
+  }
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${invoiceId}`);
+  return {};
+}
+
 export async function deleteInvoice(id: string): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
