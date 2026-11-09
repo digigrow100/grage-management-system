@@ -1266,6 +1266,57 @@ export type Database = {
           },
         ]
       }
+      invoice_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          garage_id: string
+          id: string
+          invoice_id: string
+          method: string
+          paid_on: string
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          garage_id: string
+          id?: string
+          invoice_id: string
+          method: string
+          paid_on: string
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          garage_id?: string
+          id?: string
+          invoice_id?: string
+          method?: string
+          paid_on?: string
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_payments_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           created_at: string
@@ -2614,6 +2665,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      record_invoice_payment: {
+        Args: {
+          p_invoice: string
+          p_amount: number
+          p_date: string
+          p_method: string
+          p_reference?: string
+        }
+        Returns: string
+      }
       save_garage_invoice: {
         Args: {
           p_garage: string

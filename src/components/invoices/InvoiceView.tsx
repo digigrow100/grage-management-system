@@ -7,13 +7,12 @@ import { ArrowLeft, ArrowRightLeft, Download, Loader2 } from "lucide-react";
 import { InvoicePaper, A4_WIDTH_PX, A4_HEIGHT_PX } from "./InvoicePaper";
 import { EditInvoiceButton } from "@/components/forms/EditInvoiceModal";
 import { DeleteButton } from "@/components/ui/DeleteButton";
+import { RecordPaymentButton } from "@/components/invoices/RecordPaymentModal";
 import { CreateCreditNoteButton } from "@/components/invoices/CreateCreditNoteModal";
 import { convertEstimateToInvoice, deleteInvoice, updateInvoiceStatus } from "@/lib/supabase/mutations";
 import type { Customer, GarageSettings, Invoice, InvoiceStatus, Vehicle } from "@/lib/types";
 
-// "paid" is deliberately excluded: the database only allows an invoice to
-// become paid once its recorded payments cover the full total, which this
-// app has no UI for yet — offering it here would just fail silently.
+// The database marks the invoice paid when recorded payments cover its balance.
 const QUICK_STATUS_OPTIONS: Exclude<InvoiceStatus, "estimate" | "paid">[] = ["draft", "sent"];
 
 interface InvoiceViewProps {
@@ -24,6 +23,8 @@ interface InvoiceViewProps {
   customers: Customer[];
   vehicles: Vehicle[];
   garage?: GarageSettings;
+  canManage: boolean;
+  balance: number;
 }
 
 export function InvoiceView({
@@ -34,6 +35,8 @@ export function InvoiceView({
   customers,
   vehicles,
   garage,
+  canManage,
+  balance,
 }: InvoiceViewProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,9 +134,14 @@ export function InvoiceView({
         >
           <ArrowLeft size={15} /> Back to invoices
         </Link>
-        <div className="flex items-center gap-2">
-          <EditInvoiceButton invoice={invoice} customers={customers} vehicles={vehicles} />
-          {invoice.status !== "estimate" && invoice.status !== "paid" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {canManage && invoice.status !== "paid" && (
+            <EditInvoiceButton invoice={invoice} customers={customers} vehicles={vehicles} />
+          )}
+          {canManage && invoice.status !== "estimate" && invoice.status !== "paid" && balance > 0 && (
+            <RecordPaymentButton invoiceId={invoice.id} balance={balance} />
+          )}
+          {canManage && invoice.status !== "estimate" && invoice.status !== "paid" ? (
             <select
               aria-label="Change invoice status"
               value={invoice.status}
@@ -153,14 +161,16 @@ export function InvoiceView({
               ) : null}
             </select>
           ) : null}
-          <DeleteButton
-            id={invoice.id}
-            action={deleteInvoice}
-            label={`Delete ${invoice.number}`}
-            confirmMessage={`Delete invoice ${invoice.number}? This cannot be undone.`}
-            redirectTo="/invoices"
-          />
-          {invoice.status === "estimate" ? (
+          {canManage && invoice.status !== "paid" && (
+            <DeleteButton
+              id={invoice.id}
+              action={deleteInvoice}
+              label={`Delete ${invoice.number}`}
+              confirmMessage={`Delete invoice ${invoice.number}? This cannot be undone.`}
+              redirectTo="/invoices"
+            />
+          )}
+          {canManage && invoice.status === "estimate" ? (
             <button
               type="button"
               onClick={handleConvert}
@@ -175,7 +185,7 @@ export function InvoiceView({
               {converting ? "Converting..." : "Convert to Invoice"}
             </button>
           ) : null}
-          {invoice.status !== "estimate" && invoice.status !== "draft" ? (
+          {canManage && invoice.status !== "estimate" && invoice.status !== "draft" ? (
             <CreateCreditNoteButton invoice={invoice} />
           ) : null}
           <button

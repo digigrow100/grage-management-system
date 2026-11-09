@@ -1483,6 +1483,44 @@ export async function updateInvoiceStatus(
   return {};
 }
 
+export async function recordInvoicePayment(
+  id: string,
+  input: { amount: number; date: string; method: string; reference?: string }
+): Promise<MutationResult> {
+  try {
+    await requirePermission("manageInvoices");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
+  const [supabase, garageId] = await Promise.all([createClient(), getCurrentGarageId()]);
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("id", id)
+    .eq("garage_id", garageId)
+    .maybeSingle();
+  if (invoiceError) return { error: invoiceError.message };
+  if (!invoice) return { error: "Invoice not found." };
+
+  const { error } = await supabase.rpc("record_invoice_payment", {
+    p_invoice: id,
+    p_amount: input.amount,
+    p_date: input.date,
+    p_method: input.method,
+    p_reference: input.reference?.trim() || undefined,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/invoices/${id}`);
+  revalidatePath("/invoices");
+  revalidatePath("/accounting");
+  revalidatePath("/reports");
+  revalidatePath("/");
+  return {};
+}
+
 export async function deleteInvoice(id: string): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();

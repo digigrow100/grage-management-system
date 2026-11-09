@@ -6,10 +6,12 @@ import {
   getCustomers,
   getGarageSettings,
   getInvoice,
+  getInvoicePaymentTotal,
   getJobCards,
   getVehicle,
   getVehicles,
 } from "@/lib/supabase/queries";
+import { hasPermission } from "@/lib/permissions";
 import { invoiceTotals } from "@/lib/totals";
 import { InvoiceView } from "@/components/invoices/InvoiceView";
 import { CreditNotesList } from "@/components/invoices/CreditNotesList";
@@ -24,7 +26,13 @@ export default async function InvoiceDetailPage({
   const invoice = await getInvoice(id);
   if (!invoice) notFound();
 
-  const [customer, vehicle, customers, vehicles, garage, creditNotes, allJobs] = await Promise.all([
+  const paymentDetails = hasPermission("manageInvoices").then(async (canManage) => ({
+    canManage,
+    paid: canManage && invoice.status !== "estimate" && invoice.status !== "paid"
+      ? await getInvoicePaymentTotal(invoice.id)
+      : 0,
+  }));
+  const [customer, vehicle, customers, vehicles, garage, creditNotes, allJobs, payment] = await Promise.all([
     getCustomer(invoice.customerId),
     invoice.vehicleId ? getVehicle(invoice.vehicleId) : Promise.resolve(undefined),
     getCustomers(),
@@ -32,6 +40,7 @@ export default async function InvoiceDetailPage({
     getGarageSettings(),
     getCreditNotesForInvoice(invoice.id),
     invoice.jobIds.length > 0 ? getJobCards() : Promise.resolve([]),
+    paymentDetails,
   ]);
   const totals = invoiceTotals(invoice);
   const linkedJobs = allJobs.filter((j) => invoice.jobIds.includes(j.id));
@@ -48,6 +57,8 @@ export default async function InvoiceDetailPage({
           customers={customers}
           vehicles={vehicles}
           garage={garage}
+          canManage={payment.canManage}
+          balance={Math.round(Math.max(0, totals.total - payment.paid) * 100) / 100}
         />
         <div className="mx-auto max-w-3xl space-y-4">
           <LinkedJobsList jobs={linkedJobs} />
