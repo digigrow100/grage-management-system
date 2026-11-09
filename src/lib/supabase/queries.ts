@@ -1149,10 +1149,7 @@ export async function getEmployees(): Promise<Employee[]> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
   const { data, error } = await supabase
-    .from("employees")
-    .select("*")
-    .eq("garage_id", garageId)
-    .order("full_name", { ascending: true });
+    .rpc("list_garage_employees", { p_garage: garageId });
   if (error) throw new Error(error.message);
   return (data ?? []).map(mapEmployee);
 }

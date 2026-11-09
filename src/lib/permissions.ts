@@ -1,38 +1,24 @@
 import { cache } from "react";
 import type { GarageRole } from "@/lib/types";
 import { getCurrentGarageId, getUserGarages } from "@/lib/supabase/garage";
+import { createClient } from "@/lib/supabase/server";
 
-/**
- * Minimum permission rules (spec section 10):
- *  - owner: full garage access.
- *  - manager: operational access plus employees, analytics and settings,
- *    except ownership/destructive tenant actions.
- *  - service_advisor: customers, vehicles, bookings, estimates, jobs,
- *    reminders and stock reads.
- *  - technician: assigned calendar/jobs, vehicle details, mileage, job
- *    notes and line status; no settings, employee pay rates or
- *    business-wide financial analytics.
- */
-export const PERMISSIONS = {
-  manageGarageSettings: ["owner", "manager"],
-  manageEmployees: ["owner", "manager"],
-  manageLeave: ["owner", "manager"],
-  viewEmployeePayRates: ["owner", "manager"],
-  viewBusinessAnalytics: ["owner", "manager"],
-  deleteTenantData: ["owner"],
-  manageCustomers: ["owner", "manager", "service_advisor"],
-  manageVehicles: ["owner", "manager", "service_advisor"],
-  manageBookings: ["owner", "manager", "service_advisor"],
-  manageJobs: ["owner", "manager", "service_advisor", "technician"],
-  manageVhc: ["owner", "manager", "service_advisor", "technician"],
-  manageReminders: ["owner", "manager", "service_advisor"],
-  manageFeedback: ["owner", "manager", "service_advisor"],
-  readStock: ["owner", "manager", "service_advisor", "technician"],
-  manageStock: ["owner", "manager", "service_advisor"],
-  manageInvoices: ["owner", "manager", "service_advisor"],
-} as const satisfies Record<string, readonly GarageRole[]>;
+const PERMISSION_KEYS = {
+  manageGarageSettings: ["settings.manage"],
+  manageEmployees: ["employees.manage"],
+  manageLeave: ["employees.manage"],
+  manageCustomers: ["customers.manage"],
+  manageVehicles: ["customers.manage"],
+  manageBookings: ["bookings.manage"],
+  manageJobs: ["jobs.manage", "jobs.update"],
+  manageVhc: ["jobs.manage", "jobs.update"],
+  manageReminders: ["reminders.manage"],
+  manageFeedback: ["jobs.manage", "reminders.manage"],
+  manageStock: ["inventory.manage"],
+  manageInvoices: ["invoices.manage"],
+} as const;
 
-export type Permission = keyof typeof PERMISSIONS;
+export type Permission = keyof typeof PERMISSION_KEYS | "deleteTenantData";
 
 export class PermissionError extends Error {
   constructor(message = "You don't have permission to do this.") {
@@ -41,39 +27,32 @@ export class PermissionError extends Error {
   }
 }
 
-/**
- * The signed-in user's role on the current garage. Memoized per request,
- * same pattern as getCurrentGarageId/getUserGarages.
- */
-export const getCurrentGarageRole = cache(async (): Promise<GarageRole> => {
-  const [garages, garageId] = await Promise.all([
+const getGarageAccess = cache(async () => {
+  const [garages, garageId, supabase] = await Promise.all([
     getUserGarages(),
     getCurrentGarageId(),
+    createClient(),
   ]);
+  const garage = garages.find((item) => item.id === garageId);
+  if (!garage) throw new PermissionError("You are not a member of this garage.");
 
-  const garage = garages.find((g) => g.id === garageId);
-  if (!garage) {
-    throw new PermissionError("You are not a member of this garage.");
-  }
-
-  return garage.role;
+  const { data, error } = await supabase.rpc("my_garage_permissions", { p_garage: garageId });
+  if (error) throw new PermissionError("Could not verify your garage permissions.");
+  return { role: garage.role, keys: new Set(data ?? []) };
 });
 
-/**
- * Server-side guard for mutations. Throws PermissionError if the current
- * user's role on the current garage isn't allowed to perform `permission`.
- * UI-level hiding is a convenience, not a security boundary — every
- * sensitive Server Action should call this before writing.
- */
+function canAccess({ role, keys }: Awaited<ReturnType<typeof getGarageAccess>>, permission: Permission) {
+  return permission === "deleteTenantData"
+    ? role === "owner"
+    : keys.has("*") || PERMISSION_KEYS[permission].some((key) => keys.has(key));
+}
+
+export async function hasPermission(permission: Permission): Promise<boolean> {
+  return canAccess(await getGarageAccess(), permission);
+}
+
 export async function requirePermission(permission: Permission): Promise<GarageRole> {
-  const role = await getCurrentGarageRole();
-  const allowed: readonly GarageRole[] = PERMISSIONS[permission];
-
-  if (!allowed.includes(role)) {
-    throw new PermissionError(
-      `Your role (${role}) doesn't have permission to do this.`
-    );
-  }
-
-  return role;
+  const access = await getGarageAccess();
+  if (!canAccess(access, permission)) throw new PermissionError();
+  return access.role;
 }

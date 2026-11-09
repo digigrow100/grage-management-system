@@ -323,6 +323,7 @@ export function AddCustomerButton({
 
     const result = await addBooking({
       customerId,
+      vehicleId: vehicleId || undefined,
       jobType: jobType as JobType,
       date: String(formData.get("date") ?? ""),
       time: String(formData.get("time") ?? ""),

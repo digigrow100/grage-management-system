@@ -23,7 +23,11 @@ export async function signIn(
     return { error: error.message };
   }
 
-  redirect(next || "/");
+  const appOrigin = "https://garage.invalid";
+  const destination = URL.parse(next, appOrigin);
+  redirect(next.startsWith("/") && destination?.origin === appOrigin && !destination.pathname.startsWith("//")
+    ? destination.pathname + destination.search + destination.hash
+    : "/");
 }
 
 export async function signUp(

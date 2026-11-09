@@ -919,31 +919,133 @@ export type Database = {
           },
         ]
       }
+      garage_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          garage_id: string
+          id: string
+          invited_by: string
+          role_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          garage_id: string
+          id?: string
+          invited_by: string
+          role_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          garage_id?: string
+          id?: string
+          invited_by?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "garage_invites_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "garage_invites_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "garage_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       garage_members: {
         Row: {
           created_at: string
+          email: string | null
           garage_id: string
           id: string
           role: string
+          role_id: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
+          email?: string | null
           garage_id: string
           id?: string
           role?: string
+          role_id?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
+          email?: string | null
           garage_id?: string
           id?: string
           role?: string
+          role_id?: string | null
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "garage_members_garage_id_fkey"
+            columns: ["garage_id"]
+            isOneToOne: false
+            referencedRelation: "garage_settings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "garage_members_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "garage_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      garage_roles: {
+        Row: {
+          created_at: string
+          description: string | null
+          garage_id: string
+          id: string
+          is_system: boolean
+          name: string
+          permissions: string[]
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          garage_id: string
+          id?: string
+          is_system?: boolean
+          name: string
+          permissions?: string[]
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          garage_id?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          permissions?: string[]
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "garage_roles_garage_id_fkey"
             columns: ["garage_id"]
             isOneToOne: false
             referencedRelation: "garage_settings"
@@ -2512,6 +2614,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      save_garage_invoice: {
+        Args: {
+          p_garage: string
+          p_id: string | null
+          p_input: Json
+          p_job_ids?: string[]
+        }
+        Returns: string
+      }
+      list_garage_employees: {
+        Args: { p_garage: string }
+        Returns: Database["public"]["Tables"]["employees"]["Row"][]
+      }
+      my_garage_permissions: {
+        Args: { p_garage: string }
+        Returns: string[]
+      }
+      save_booking_with_job: {
+        Args: {
+          p_garage_id: string
+          p_booking: Json
+          p_priority: string
+          p_description: string
+          p_request_id?: string
+        }
+        Returns: { booking_id: string; job_id: string }[]
+      }
       create_booking_request: {
         Args: {
           p_customer_email: string

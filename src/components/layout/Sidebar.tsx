@@ -55,7 +55,7 @@ export function Sidebar() {
       </nav>
       <div className="border-t border-white/10 px-5 py-4">
         <p className="text-xs text-slate-500">
-          Frontend MVP &middot; Supabase not yet connected
+          My Garage CRM
         </p>
       </div>
     </aside>
