@@ -27,8 +27,7 @@ export function JobTechnicianSelect({
     setSaving(true);
     setError(null);
 
-    const employee = employees.find((e) => e.id === next);
-    const result = await updateJobTechnician(jobId, employee?.fullName ?? null, next || null);
+    const result = await updateJobTechnician(jobId, next || null);
 
     setSaving(false);
     if (result.error) {

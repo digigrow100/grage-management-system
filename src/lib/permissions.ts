@@ -10,6 +10,7 @@ const PERMISSION_KEYS = {
   manageCustomers: ["customers.manage"],
   manageVehicles: ["customers.manage"],
   manageBookings: ["bookings.manage"],
+  manageJobAssignments: ["jobs.manage"],
   manageJobs: ["jobs.manage", "jobs.update"],
   manageVhc: ["jobs.manage", "jobs.update"],
   manageReminders: ["reminders.manage"],
@@ -42,6 +43,7 @@ const getGarageAccess = cache(async () => {
 });
 
 function canAccess({ role, keys }: Awaited<ReturnType<typeof getGarageAccess>>, permission: Permission) {
+  if (permission === "manageJobAssignments" && role === "technician") return false;
   return permission === "deleteTenantData"
     ? role === "owner"
     : keys.has("*") || PERMISSION_KEYS[permission].some((key) => keys.has(key));

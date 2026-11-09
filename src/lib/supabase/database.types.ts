@@ -2665,6 +2665,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      change_garage_job_status: {
+        Args: { p_garage: string; p_job: string; p_status: Database["public"]["Enums"]["job_status"]; p_reason?: string }
+        Returns: undefined
+      }
+      record_garage_job_mileage: {
+        Args: { p_garage: string; p_job: string; p_mileage: number }
+        Returns: undefined
+      }
+      save_garage_job_lines: {
+        Args: { p_garage: string; p_job: string; p_labour: Json; p_parts: Json; p_append?: boolean }
+        Returns: undefined
+      }
       record_invoice_payment: {
         Args: {
           p_invoice: string
