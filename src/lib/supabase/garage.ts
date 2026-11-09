@@ -12,10 +12,13 @@ export const GARAGE_COOKIE = "garage_id";
  */
 export const getUserGarages = cache(async (): Promise<Garage[]> => {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
 
   const { data: memberships } = await supabase
     .from("garage_members")
-    .select("garage_id, role");
+    .select("garage_id, role")
+    .eq("user_id", user.id);
 
   if (!memberships || memberships.length === 0) return [];
 
