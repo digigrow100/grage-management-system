@@ -107,7 +107,7 @@ export function BookJobButton({
   const activeEmployees = employees.filter((e) => e.active);
   const partById = new Map(parts.map((p) => [p.id, p]));
 
-  // Carried across steps once created.
+  // Carried across the booking and invoice steps.
   const [customerId, setCustomerId] = useState("");
   const [vehicleId, setVehicleId] = useState("");
   const [jobId, setJobId] = useState("");
@@ -208,6 +208,7 @@ export function BookJobButton({
     const employee = activeEmployees.find((emp) => emp.id === employeeId);
     const result = await addBooking({
       customerId: selectedCustomerId,
+      vehicleId: vehicleId || undefined,
       jobType: jobType as JobType,
       date: String(formData.get("date") ?? ""),
       time: String(formData.get("time") ?? ""),
@@ -423,7 +424,17 @@ export function BookJobButton({
         {step === "booking" ? (
           <form className="space-y-5" onSubmit={handleBookingSubmit}>
             <FieldGroup label="Customer" htmlFor="customer" required>
-              <Select id="customer" name="customer" icon={User} required defaultValue="">
+              <Select
+                id="customer"
+                name="customer"
+                icon={User}
+                required
+                value={customerId}
+                onChange={(e) => {
+                  setCustomerId(e.target.value);
+                  setVehicleId("");
+                }}
+              >
                 <option value="" disabled>
                   Select a customer
                 </option>
@@ -434,6 +445,24 @@ export function BookJobButton({
                 ))}
               </Select>
             </FieldGroup>
+
+            {customerId && vehicleOptions.length > 0 && (
+              <FieldGroup label="Vehicle" htmlFor="bookingVehicle">
+                <Select
+                  id="bookingVehicle"
+                  icon={Car}
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                >
+                  <option value="">No vehicle (optional)</option>
+                  {vehicleOptions.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {[vehicle.registration, vehicle.make, vehicle.model].filter(Boolean).join(" ")}
+                    </option>
+                  ))}
+                </Select>
+              </FieldGroup>
+            )}
 
             <FieldGroup label="Job Type" htmlFor="jobType" required>
               <Select

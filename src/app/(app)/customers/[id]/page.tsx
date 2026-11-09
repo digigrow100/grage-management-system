@@ -217,7 +217,7 @@ export default async function CustomerDetailPage({
                         {job.description ?? "Untitled job"}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {formatDate(job.createdAt)} · {job.technician ?? "Unassigned"}
+                        {formatDate(job.dueDate ?? job.createdAt)} · {job.technician ?? "Unassigned"}
                       </p>
                     </div>
                     <Badge tone={JOB_STATUS_TONE[job.status]}>
