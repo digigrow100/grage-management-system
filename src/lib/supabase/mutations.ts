@@ -1359,56 +1359,28 @@ export interface InvoiceInput {
 }
 
 export async function addInvoice(input: InvoiceInput): Promise<MutationResult> {
+  return saveInvoice(input, null);
+}
+
+async function saveInvoice(input: InvoiceInput, id: string | null): Promise<MutationResult> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
-
-  const { data: invoice, error } = await supabase
-    .from("invoices")
-    .insert({
-      garage_id: garageId,
-      customer_id: input.customerId,
-      vehicle_id: input.vehicleId || null,
-      date: input.invoiceDate,
-      due_date: input.dueDate,
-      vat_rate: input.vatRate,
-      status: input.status,
-      notes: input.notes || null,
-    })
-    .select("id")
-    .single();
-
+  const { jobIds, ...fields } = input;
+  const { data: invoiceId, error } = await supabase.rpc("save_garage_invoice", {
+    p_garage: garageId,
+    p_id: id,
+    p_input: {
+      ...fields,
+      lineItems: fields.lineItems.filter((item) => item.description.trim()),
+    },
+    p_job_ids: jobIds ?? [],
+  });
   if (error) return { error: error.message };
 
-  const lineItems = input.lineItems.filter((li) => li.description.trim());
-  if (lineItems.length > 0) {
-    const { error: lineItemsError } = await supabase
-      .from("invoice_line_items")
-      .insert(
-        lineItems.map((li) => ({
-          garage_id: garageId,
-          invoice_id: invoice.id,
-          description: li.description,
-          quantity: li.quantity,
-          unit_price: li.unitPrice,
-        }))
-      );
-    if (lineItemsError) return { error: lineItemsError.message };
-  }
-
-  if (input.jobIds && input.jobIds.length > 0) {
-    const { error: jobsError } = await supabase.from("invoice_jobs").insert(
-      input.jobIds.map((jobId) => ({
-        garage_id: garageId,
-        invoice_id: invoice.id,
-        job_id: jobId,
-      }))
-    );
-    if (jobsError) return { error: jobsError.message };
-  }
-
   revalidatePath("/invoices");
+  if (id) revalidatePath(`/invoices/${id}`);
   revalidatePath("/");
-  return { id: invoice.id };
+  return { id: invoiceId };
 }
 
 /**
@@ -1463,53 +1435,7 @@ export async function updateInvoice(
   id: string,
   input: InvoiceInput
 ): Promise<MutationResult> {
-  const supabase = await createClient();
-  const garageId = await getCurrentGarageId();
-
-  const { error } = await supabase
-    .from("invoices")
-    .update({
-      customer_id: input.customerId,
-      vehicle_id: input.vehicleId || null,
-      date: input.invoiceDate,
-      due_date: input.dueDate,
-      vat_rate: input.vatRate,
-      status: input.status,
-      notes: input.notes || null,
-    })
-    .eq("id", id)
-    .eq("garage_id", garageId);
-
-  if (error) return { error: error.message };
-
-  const { error: deleteError } = await supabase
-    .from("invoice_line_items")
-    .delete()
-    .eq("invoice_id", id)
-    .eq("garage_id", garageId);
-
-  if (deleteError) return { error: deleteError.message };
-
-  const lineItems = input.lineItems.filter((li) => li.description.trim());
-  if (lineItems.length > 0) {
-    const { error: lineItemsError } = await supabase
-      .from("invoice_line_items")
-      .insert(
-        lineItems.map((li) => ({
-          garage_id: garageId,
-          invoice_id: id,
-          description: li.description,
-          quantity: li.quantity,
-          unit_price: li.unitPrice,
-        }))
-      );
-    if (lineItemsError) return { error: lineItemsError.message };
-  }
-
-  revalidatePath("/invoices");
-  revalidatePath(`/invoices/${id}`);
-  revalidatePath("/");
-  return {};
+  return saveInvoice(input, id);
 }
 
 export async function convertEstimateToInvoice(id: string): Promise<MutationResult> {

@@ -41,12 +41,18 @@ const getGarageAccess = cache(async () => {
   return { role: garage.role, keys: new Set(data ?? []) };
 });
 
-export async function requirePermission(permission: Permission): Promise<GarageRole> {
-  const { role, keys } = await getGarageAccess();
-  const allowed = permission === "deleteTenantData"
+function canAccess({ role, keys }: Awaited<ReturnType<typeof getGarageAccess>>, permission: Permission) {
+  return permission === "deleteTenantData"
     ? role === "owner"
     : keys.has("*") || PERMISSION_KEYS[permission].some((key) => keys.has(key));
+}
 
-  if (!allowed) throw new PermissionError();
-  return role;
+export async function hasPermission(permission: Permission): Promise<boolean> {
+  return canAccess(await getGarageAccess(), permission);
+}
+
+export async function requirePermission(permission: Permission): Promise<GarageRole> {
+  const access = await getGarageAccess();
+  if (!canAccess(access, permission)) throw new PermissionError();
+  return access.role;
 }

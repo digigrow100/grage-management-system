@@ -4,13 +4,17 @@ import { Badge } from "@/components/ui/Badge";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { getEmployees } from "@/lib/supabase/queries";
 import { deleteEmployee } from "@/lib/supabase/mutations";
+import { hasPermission } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import { AddEmployeeButton } from "@/components/forms/AddEmployeeModal";
 import { EditEmployeeButton } from "@/components/forms/EditEmployeeModal";
 import { EMPLOYEE_ROLE_LABELS, EMPLOYEE_ROLE_TONE } from "@/lib/employee-roles";
 
 export default async function EmployeesPage() {
-  const employees = await getEmployees();
+  const [employees, canManage] = await Promise.all([
+    getEmployees(),
+    hasPermission("manageEmployees"),
+  ]);
   const activeCount = employees.filter((e) => e.active).length;
 
   return (
@@ -20,9 +24,11 @@ export default async function EmployeesPage() {
         subtitle={`${employees.length} staff · ${activeCount} active`}
       />
       <main className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-        <div className="flex justify-end">
-          <AddEmployeeButton />
-        </div>
+        {canManage && (
+          <div className="flex justify-end">
+            <AddEmployeeButton />
+          </div>
+        )}
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -50,7 +56,7 @@ export default async function EmployeesPage() {
                       <p className="text-xs text-slate-400">{emp.phone || ""}</p>
                     </td>
                     <td className="px-5 py-3 text-slate-500">
-                      {formatCurrency(emp.hourlyRate)}/hr
+                      {canManage ? `${formatCurrency(emp.hourlyRate)}/hr` : "—"}
                     </td>
                     <td className="px-5 py-3">
                       {emp.active ? (
@@ -60,15 +66,17 @@ export default async function EmployeesPage() {
                       )}
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <EditEmployeeButton employee={emp} />
-                        <DeleteButton
-                          id={emp.id}
-                          action={deleteEmployee}
-                          label={`Delete ${emp.fullName}`}
-                          confirmMessage={`Delete ${emp.fullName}? This cannot be undone.`}
-                        />
-                      </div>
+                      {canManage && (
+                        <div className="flex items-center justify-end gap-1">
+                          <EditEmployeeButton employee={emp} />
+                          <DeleteButton
+                            id={emp.id}
+                            action={deleteEmployee}
+                            label={`Delete ${emp.fullName}`}
+                            confirmMessage={`Delete ${emp.fullName}? This cannot be undone.`}
+                          />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
