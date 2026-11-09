@@ -2512,6 +2512,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      my_garage_permissions: {
+        Args: { p_garage: string }
+        Returns: string[]
+      }
+      save_booking_with_job: {
+        Args: {
+          p_garage_id: string
+          p_booking: Json
+          p_priority: string
+          p_description: string
+          p_request_id?: string
+        }
+        Returns: { booking_id: string; job_id: string }[]
+      }
       create_booking_request: {
         Args: {
           p_customer_email: string

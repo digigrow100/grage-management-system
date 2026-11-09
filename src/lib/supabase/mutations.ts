@@ -576,6 +576,7 @@ export async function updateVehicle(
 
 export interface AddBookingInput {
   customerId: string;
+  vehicleId?: string;
   jobType: JobType;
   date: string;
   time?: string;
@@ -598,90 +599,50 @@ export interface AddBookingInput {
 export async function addBooking(
   input: AddBookingInput
 ): Promise<MutationResult & { jobId?: string }> {
+  return saveBooking(input);
+}
+
+async function saveBooking(
+  input: AddBookingInput,
+  requestId?: string
+): Promise<MutationResult & { jobId?: string }> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
-  const technician = input.technician?.trim() || null;
-  const bay = input.bay?.trim() || null;
-  const employeeId = input.employeeId?.trim() || null;
+  const isMobile = input.locationType && input.locationType !== "garage";
 
-  const { data: bookingWindow, error: windowError } = await supabase.rpc(
-    "compute_booking_window",
-    {
-      p_garage_id: garageId,
-      p_date: input.date,
-      p_time: input.time || "09:00:00",
-      p_duration_minutes: input.durationMinutes ?? 60,
-    }
-  );
-
-  if (windowError) return { error: windowError.message };
-
-  const startsAt = bookingWindow.starts_at;
-  const endsAt = bookingWindow.ends_at;
-
-  const { data: conflict, error: conflictError } = await supabase.rpc("check_booking_conflict", {
+  const { data, error } = await supabase.rpc("save_booking_with_job", {
     p_garage_id: garageId,
-    p_employee_id: employeeId,
-    p_starts_at: startsAt,
-    p_ends_at: endsAt,
-  });
-
-  if (conflictError) return { error: conflictError.message };
-  if (conflict) return { error: conflict };
-
-  const { data: booking, error } = await supabase
-    .from("bookings")
-    .insert({
-      garage_id: garageId,
+    p_booking: {
       customer_id: input.customerId,
+      vehicle_id: input.vehicleId || null,
       job_type: input.jobType,
       date: input.date,
       time: input.time || null,
-      duration_minutes: input.durationMinutes ?? null,
-      starts_at: startsAt,
-      ends_at: endsAt,
+      duration_minutes: input.durationMinutes ?? 60,
       est_price: input.estPrice ?? null,
-      technician,
-      employee_id: employeeId,
-      bay,
+      technician: input.technician?.trim() || null,
+      employee_id: input.employeeId?.trim() || null,
+      bay: input.bay?.trim() || null,
       notes: input.notes || null,
       service_details: (input.serviceDetails as unknown as Json) ?? null,
       location_type: input.locationType ?? "garage",
-      address_line: input.locationType && input.locationType !== "garage" ? input.addressLine || null : null,
-      post_code: input.locationType && input.locationType !== "garage" ? input.postCode || null : null,
-      google_place_id: input.googlePlaceId ?? null,
-      latitude: input.latitude ?? null,
-      longitude: input.longitude ?? null,
-    })
-    .select("id")
-    .single();
+      address_line: isMobile ? input.addressLine || null : null,
+      post_code: isMobile ? input.postCode || null : null,
+      google_place_id: isMobile ? input.googlePlaceId ?? null : null,
+      latitude: isMobile ? input.latitude ?? null : null,
+      longitude: isMobile ? input.longitude ?? null : null,
+    },
+    p_priority: input.priority ?? "medium",
+    p_description: JOB_TYPE_LABELS[input.jobType],
+    ...(requestId ? { p_request_id: requestId } : {}),
+  }).single();
 
   if (error) return { error: error.message };
-
-  // A booking always creates its job card so the job moves through the
-  // workshop board (booked -> in progress -> ... -> invoiced) from here.
-  const { data: job, error: jobError } = await supabase
-    .from("job_cards")
-    .insert({
-      garage_id: garageId,
-      booking_id: booking.id,
-      customer_id: input.customerId,
-      status: "booked",
-      priority: input.priority ?? "medium",
-      technician,
-      description: JOB_TYPE_LABELS[input.jobType],
-      due_date: input.date,
-      notes: input.notes || null,
-    })
-    .select("id")
-    .single();
-
-  if (jobError) return { error: jobError.message };
 
   revalidatePath("/diary");
   revalidatePath("/jobs");
   revalidatePath("/");
-  return { id: booking.id, jobId: job.id };
+  return { id: data.booking_id, jobId: data.job_id };
 }
 
 export async function deleteBooking(id: string): Promise<MutationResult> {
@@ -778,7 +739,7 @@ export async function declineBookingRequest(
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("booking_requests")
     .update({
       status: "declined",
@@ -788,9 +749,13 @@ export async function declineBookingRequest(
     })
     .eq("id", id)
     .eq("garage_id", garageId)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
 
   if (error) return { error: error.message };
+
+  if (!data) return { error: "Booking request not found or already actioned." };
 
   revalidatePath("/booking-requests");
   return {};
@@ -830,7 +795,7 @@ export async function acceptBookingRequest(
 
   if (requestError || !request) return { error: "Booking request not found or already actioned." };
 
-  const bookingResult = await addBooking({
+  const bookingResult = await saveBooking({
     customerId: input.customerId,
     jobType: request.job_type as JobType,
     date: input.date,
@@ -839,29 +804,8 @@ export async function acceptBookingRequest(
     priority: input.priority,
     employeeId: input.employeeId,
     bay: input.bay,
-    notes: [request.notes, request.vehicle_registration ? `Vehicle: ${request.vehicle_registration}` : null]
-      .filter(Boolean)
-      .join(" — ") || undefined,
-  });
-
-  if (bookingResult.error || !bookingResult.id) return bookingResult;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { error } = await supabase
-    .from("booking_requests")
-    .update({
-      status: "converted",
-      decided_at: new Date().toISOString(),
-      decided_by: user?.id ?? null,
-      booking_id: bookingResult.id,
-    })
-    .eq("id", id)
-    .eq("garage_id", garageId);
-
-  if (error) return { error: error.message };
+  }, id);
+  if (bookingResult.error) return bookingResult;
 
   revalidatePath("/booking-requests");
   revalidatePath("/diary");

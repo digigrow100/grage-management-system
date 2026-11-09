@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/api/vehicles/lookup") return;
   return updateSession(request);
 }
 

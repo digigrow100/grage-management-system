@@ -40,18 +40,20 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublicPath =
-    PUBLIC_PATHS.includes(request.nextUrl.pathname) ||
-    PUBLIC_PATH_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix));
+  const isAuthPage = PUBLIC_PATHS.includes(request.nextUrl.pathname);
+  const isPublicLink = PUBLIC_PATH_PREFIXES.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix)
+  );
 
-  if (!user && !isPublicPath) {
+  if (!user && !isAuthPage && !isPublicLink) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", request.nextUrl.pathname);
+    loginUrl.search = "";
+    loginUrl.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (user && isPublicPath) {
+  if (user && isAuthPage) {
     const homeUrl = request.nextUrl.clone();
     homeUrl.pathname = "/";
     homeUrl.search = "";
