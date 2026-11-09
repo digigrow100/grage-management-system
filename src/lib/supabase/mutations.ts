@@ -17,7 +17,6 @@ import type {
   VehicleHistory,
 } from "@/lib/types";
 import { JOB_TYPE_LABELS } from "@/lib/job-types";
-import { JOB_STATUS_LABELS, JOB_STATUS_TRANSITIONS } from "@/lib/job-status";
 
 export interface MutationResult {
   error?: string;
@@ -859,77 +858,16 @@ export async function regenerateBookingWidgetToken(): Promise<MutationResult> {
   return {};
 }
 
-/**
- * Changes a job's status, validating the transition against
- * JOB_STATUS_TRANSITIONS, stamping the relevant lifecycle timestamp, and
- * recording the change in job_status_history. This replaces the old
- * unconditional updateJobStatus — every status change now goes through one
- * validated path (spec 5.11: "Status changes must use one server action
- * that validates transitions, updates timestamps and inserts history").
- */
 export async function changeJobStatus(
   id: string,
   status: JobStatus,
   reason?: string
 ): Promise<MutationResult> {
-  try {
-    await requirePermission("manageJobs");
-  } catch (err) {
-    if (err instanceof PermissionError) return { error: err.message };
-    throw err;
-  }
-
-  const supabase = await createClient();
-  const garageId = await getCurrentGarageId();
-
-  const { data: current, error: currentError } = await supabase
-    .from("job_cards")
-    .select("status")
-    .eq("id", id)
-    .eq("garage_id", garageId)
-    .single();
-
-  if (currentError) return { error: currentError.message };
-
-  const previousStatus = current.status as JobStatus;
-  if (previousStatus === status) return {};
-
-  const allowed = JOB_STATUS_TRANSITIONS[previousStatus] ?? [];
-  if (!allowed.includes(status)) {
-    return {
-      error: `Can't move a job from "${JOB_STATUS_LABELS[previousStatus]}" to "${JOB_STATUS_LABELS[status]}".`,
-    };
-  }
-
-  const now = new Date().toISOString();
-  const timestampPatch: Record<string, string> = {};
-  if (status === "checked_in") timestampPatch.checked_in_at = now;
-  if (status === "in_progress") timestampPatch.started_at = now;
-  if (status === "completed") timestampPatch.completed_at = now;
-  if (status === "vehicle_released") timestampPatch.released_at = now;
-
-  const { error } = await supabase
-    .from("job_cards")
-    .update({ status, ...timestampPatch })
-    .eq("id", id)
-    .eq("garage_id", garageId);
-
-  if (error) return { error: error.message };
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { error: historyError } = await supabase.from("job_status_history").insert({
-    garage_id: garageId,
-    job_id: id,
-    previous_status: previousStatus,
-    new_status: status,
-    reason: reason || null,
-    changed_by: user?.id ?? null,
+  const [supabase, garageId] = await Promise.all([createClient(), getCurrentGarageId()]);
+  const { error } = await supabase.rpc("change_garage_job_status", {
+    p_garage: garageId, p_job: id, p_status: status, p_reason: reason,
   });
-
-  if (historyError) return { error: historyError.message };
+  if (error) return { error: error.message };
 
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${id}`);
@@ -941,6 +879,13 @@ export async function updateJobPriority(
   id: string,
   priority: JobPriority
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageJobAssignments");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
@@ -960,22 +905,39 @@ export async function updateJobPriority(
 
 export async function updateJobTechnician(
   id: string,
-  technician: string | null,
   employeeId?: string | null
 ): Promise<MutationResult> {
+  try {
+    await requirePermission("manageJobAssignments");
+  } catch (err) {
+    if (err instanceof PermissionError) return { error: err.message };
+    throw err;
+  }
+
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
-  const { error } = await supabase
+  let technician: string | null = null;
+  if (employeeId) {
+    const { data, error } = await supabase.from("employees")
+      .select("full_name").eq("garage_id", garageId).eq("id", employeeId).eq("active", true).maybeSingle();
+    if (error) return { error: error.message };
+    if (!data) return { error: "Select an active employee from this garage." };
+    technician = data.full_name;
+  }
+
+  const { data, error } = await supabase
     .from("job_cards")
     .update({
-      technician: technician?.trim() || null,
+      technician,
       employee_id: employeeId || null,
     })
     .eq("id", id)
-    .eq("garage_id", garageId);
+    .eq("garage_id", garageId)
+    .select("id").maybeSingle();
 
   if (error) return { error: error.message };
+  if (!data) return { error: "Job not found or access denied." };
 
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${id}`);
@@ -1008,16 +970,18 @@ export async function updateJobDetails(
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("job_cards")
     .update({
       customer_complaint: input.customerComplaint?.trim() || null,
       internal_notes: input.internalNotes?.trim() || null,
     })
     .eq("id", id)
-    .eq("garage_id", garageId);
+    .eq("garage_id", garageId)
+    .select("id").maybeSingle();
 
   if (error) return { error: error.message };
+  if (!data) return { error: "Job not found or access denied." };
 
   revalidatePath(`/jobs/${id}`);
   return {};
@@ -1032,52 +996,14 @@ export async function recordVehicleMileage(
   jobId: string,
   mileage: number
 ): Promise<MutationResult> {
-  try {
-    await requirePermission("manageJobs");
-  } catch (err) {
-    if (err instanceof PermissionError) return { error: err.message };
-    throw err;
-  }
-
-  const supabase = await createClient();
-  const garageId = await getCurrentGarageId();
-
-  const { data: job, error: jobError } = await supabase
-    .from("job_cards")
-    .select("vehicle_id")
-    .eq("id", jobId)
-    .eq("garage_id", garageId)
-    .single();
-
-  if (jobError) return { error: jobError.message };
-
-  const { error } = await supabase
-    .from("job_cards")
-    .update({ mileage_in: mileage })
-    .eq("id", jobId)
-    .eq("garage_id", garageId);
-
+  const [supabase, garageId] = await Promise.all([createClient(), getCurrentGarageId()]);
+  const { error } = await supabase.rpc("record_garage_job_mileage", {
+    p_garage: garageId, p_job: jobId, p_mileage: mileage,
+  });
   if (error) return { error: error.message };
 
-  if (job.vehicle_id) {
-    await supabase
-      .from("vehicles")
-      .update({ mileage })
-      .eq("id", job.vehicle_id)
-      .eq("garage_id", garageId);
-
-    // Always logged (not just on change): a mileage-in reading at check-in
-    // is a genuine odometer reading tied to this specific job, worth
-    // keeping in history even if it happens to match the last value.
-    await supabase.from("vehicle_mileage_history").insert({
-      garage_id: garageId,
-      vehicle_id: job.vehicle_id,
-      job_id: jobId,
-      mileage,
-    });
-  }
-
   revalidatePath(`/jobs/${jobId}`);
+  revalidatePath("/customers");
   return {};
 }
 
@@ -1091,95 +1017,29 @@ export interface JobLinesInput {
   }[];
 }
 
-export async function updateJobLines(
+export async function updateJobLines(jobId: string, input: JobLinesInput): Promise<MutationResult> {
+  return saveJobLines(jobId, input, false);
+}
+
+export async function appendJobPartLines(
   jobId: string,
-  input: JobLinesInput
+  items: JobLinesInput["partLines"]
 ): Promise<MutationResult> {
-  try {
-    await requirePermission("manageJobs");
-  } catch (err) {
-    if (err instanceof PermissionError) return { error: err.message };
-    throw err;
-  }
+  const partLines = items.filter((item) => item.description.trim());
+  if (partLines.length === 0) return {};
+  return saveJobLines(jobId, { labourLines: [], partLines }, true);
+}
 
-  const supabase = await createClient();
-  const garageId = await getCurrentGarageId();
-
-  const { data: job, error: jobError } = await supabase
-    .from("job_cards")
-    .select("id")
-    .eq("id", jobId)
-    .eq("garage_id", garageId)
-    .maybeSingle();
-
-  if (jobError) return { error: jobError.message };
-  if (!job) return { error: "Job not found." };
-
-  // Read the job's current inventory-linked part quantities before they're
-  // replaced, so the net change can be posted to the stock ledger below —
-  // otherwise parts used on a job never move stock at all.
-  const { data: existingPartLines, error: existingPartsError } = await supabase
-    .from("job_part_lines")
-    .select("part_id, quantity")
-    .eq("job_id", jobId)
-    .eq("garage_id", garageId)
-    .not("part_id", "is", null);
-
-  if (existingPartsError) return { error: existingPartsError.message };
-
-  const { error: deleteLabourError } = await supabase
-    .from("job_labour_lines")
-    .delete()
-    .eq("job_id", jobId)
-    .eq("garage_id", garageId);
-
-  if (deleteLabourError) return { error: deleteLabourError.message };
-
-  const { error: deletePartsError } = await supabase
-    .from("job_part_lines")
-    .delete()
-    .eq("job_id", jobId)
-    .eq("garage_id", garageId);
-
-  if (deletePartsError) return { error: deletePartsError.message };
-
-  const labourLines = input.labourLines.filter((l) => l.description.trim());
-  if (labourLines.length > 0) {
-    const { error } = await supabase.from("job_labour_lines").insert(
-      labourLines.map((l) => ({
-        garage_id: garageId,
-        job_id: jobId,
-        description: l.description,
-        hours: l.hours,
-        rate: l.rate,
-      }))
-    );
-    if (error) return { error: error.message };
-  }
-
-  const partLines = input.partLines.filter((l) => l.description.trim());
-  if (partLines.length > 0) {
-    const { error } = await supabase.from("job_part_lines").insert(
-      partLines.map((l) => ({
-        garage_id: garageId,
-        job_id: jobId,
-        part_id: l.partId || null,
-        description: l.description,
-        quantity: l.quantity,
-        unit_price: l.unitPrice,
-      }))
-    );
-    if (error) return { error: error.message };
-  }
-
-  const stockError = await applyJobPartStockDelta(
-    supabase,
-    garageId,
-    jobId,
-    existingPartLines ?? [],
-    partLines
-  );
-  if (stockError) return { error: stockError };
+async function saveJobLines(jobId: string, input: JobLinesInput, append: boolean): Promise<MutationResult> {
+  const [supabase, garageId] = await Promise.all([createClient(), getCurrentGarageId()]);
+  const { error } = await supabase.rpc("save_garage_job_lines", {
+    p_garage: garageId,
+    p_job: jobId,
+    p_labour: input.labourLines.filter((line) => line.description.trim()),
+    p_parts: input.partLines.filter((line) => line.description.trim()),
+    p_append: append,
+  });
+  if (error) return { error: error.message };
 
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${jobId}`);
@@ -1236,63 +1096,26 @@ async function applyJobPartStockDelta(
   return error ? error.message : null;
 }
 
-/**
- * Appends new part lines to a job without touching its existing lines —
- * used when a new line item is added on an already-linked invoice and the
- * user chooses to mirror it onto the job too. Each new line posts its own
- * stock delta the same way updateJobLines does for a brand new line
- * (previous quantity 0), so inventory-linked parts still move stock.
- */
-export async function appendJobPartLines(
-  jobId: string,
-  items: { partId?: string | null; description: string; quantity: number; unitPrice: number }[]
-): Promise<MutationResult> {
+export async function deleteJobCard(id: string): Promise<MutationResult> {
   try {
-    await requirePermission("manageJobs");
+    await requirePermission("manageJobAssignments");
   } catch (err) {
     if (err instanceof PermissionError) return { error: err.message };
     throw err;
   }
-
-  const rows = items.filter((i) => i.description.trim());
-  if (rows.length === 0) return {};
-
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
 
-  const { data: job, error: jobError } = await supabase
-    .from("job_cards")
-    .select("id")
-    .eq("id", jobId)
-    .eq("garage_id", garageId)
-    .maybeSingle();
-  if (jobError) return { error: jobError.message };
-  if (!job) return { error: "Job not found." };
-
-  const { error } = await supabase.from("job_part_lines").insert(
-    rows.map((i) => ({
-      garage_id: garageId,
-      job_id: jobId,
-      part_id: i.partId || null,
-      description: i.description,
-      quantity: i.quantity,
-      unit_price: i.unitPrice,
-    }))
-  );
-  if (error) return { error: error.message };
-
-  const stockError = await applyJobPartStockDelta(supabase, garageId, jobId, [], rows);
-  if (stockError) return { error: stockError };
-
-  revalidatePath("/jobs");
-  revalidatePath(`/jobs/${jobId}`);
-  revalidatePath("/inventory");
-  return {};
-}
-
-export async function deleteJobCard(id: string): Promise<MutationResult> {
-  const supabase = await createClient();
-  const garageId = await getCurrentGarageId();
+  const [{ data: job, error: jobError }, { data: invoiceLinks, error: linksError }, { data: legacyLinks, error: legacyError }] =
+    await Promise.all([
+      supabase.from("job_cards").select("booking_id").eq("id", id).eq("garage_id", garageId).maybeSingle(),
+      supabase.from("invoice_jobs").select("job_id").eq("job_id", id).eq("garage_id", garageId).limit(1),
+      supabase.from("invoices").select("id").eq("job_id", id).eq("garage_id", garageId).limit(1),
+    ]);
+  if (jobError || linksError || legacyError) return { error: "Could not verify job links." };
+  if (!job) return { error: "Job not found or access denied." };
+  if (job.booking_id) return { error: "Cancel this job to keep its booking history." };
+  if (invoiceLinks.length || legacyLinks.length) return { error: "A job linked to an invoice cannot be deleted." };
 
   const { error: labourError } = await supabase
     .from("job_labour_lines")
@@ -1323,14 +1146,6 @@ export async function deleteJobCard(id: string): Promise<MutationResult> {
     .eq("garage_id", garageId);
 
   if (partsError) return { error: partsError.message };
-
-  const { error: unlinkError } = await supabase
-    .from("invoices")
-    .update({ job_id: null })
-    .eq("job_id", id)
-    .eq("garage_id", garageId);
-
-  if (unlinkError) return { error: unlinkError.message };
 
   const { error } = await supabase
     .from("job_cards")

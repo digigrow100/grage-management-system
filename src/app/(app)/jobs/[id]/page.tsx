@@ -14,6 +14,7 @@ import {
   getVhcTemplates,
   getFeedbackRequestsForJob,
 } from "@/lib/supabase/queries";
+import { hasPermission } from "@/lib/permissions";
 import { getCurrentGarageId } from "@/lib/supabase/garage";
 import { deleteJobCard } from "@/lib/supabase/mutations";
 import { jobLineTotal } from "@/lib/totals";
@@ -38,7 +39,7 @@ export default async function JobDetailPage({
   const job = await getJob(id);
   if (!job) notFound();
 
-  const [customer, vehicle, employees, parts, statusHistory, vhcChecks, vhcTemplates, garageId, feedbackRequests] =
+  const [customer, vehicle, employees, parts, statusHistory, vhcChecks, vhcTemplates, garageId, feedbackRequests, canAssign] =
     await Promise.all([
       getCustomer(job.customerId),
       job.vehicleId ? getVehicle(job.vehicleId) : Promise.resolve(undefined),
@@ -49,6 +50,7 @@ export default async function JobDetailPage({
       getVhcTemplates(),
       getCurrentGarageId(),
       getFeedbackRequestsForJob(job.id),
+      hasPermission("manageJobAssignments"),
     ]);
   const activeEmployees = employees.filter((e) => e.active);
   const latestVhcCheck = vhcChecks[0];
@@ -69,13 +71,13 @@ export default async function JobDetailPage({
           >
             <ArrowLeft size={15} /> Back to job board
           </Link>
-          <DeleteButton
+          {canAssign && !job.bookingId && !job.invoiceId && <DeleteButton
             id={job.id}
             action={deleteJobCard}
             label="Delete job"
             confirmMessage="Delete this job? This cannot be undone."
             redirectTo="/jobs"
-          />
+          />}
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -109,13 +111,13 @@ export default async function JobDetailPage({
             <CardBody className="space-y-2 text-sm">
               <div className="flex flex-wrap gap-2">
                 <JobStatusSelect jobId={job.id} status={job.status} />
-                <JobPrioritySelect jobId={job.id} priority={job.priority} />
+                {canAssign && <JobPrioritySelect jobId={job.id} priority={job.priority} />}
               </div>
-              <JobTechnicianSelect
-                jobId={job.id}
-                employeeId={job.employeeId}
-                employees={activeEmployees}
-              />
+              {canAssign ? (
+                <JobTechnicianSelect jobId={job.id} employeeId={job.employeeId} employees={activeEmployees} />
+              ) : (
+                <p className="text-slate-500">Technician: {job.technician ?? "Unassigned"}</p>
+              )}
               <p className="text-slate-500">
                 Created: {formatDate(job.createdAt)}
               </p>
