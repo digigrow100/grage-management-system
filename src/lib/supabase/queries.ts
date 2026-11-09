@@ -1078,6 +1078,18 @@ function mapCreditNote(row: CreditNoteRow): CreditNote {
 
 const CREDIT_NOTE_SELECT = "*, credit_note_line_items(*)";
 
+export async function getInvoicePaymentTotal(invoiceId: string): Promise<number> {
+  const [supabase, garageId] = await Promise.all([createClient(), getCurrentGarageId()]);
+  const { data, error } = await supabase
+    .from("invoice_payments")
+    .select("amount")
+    .eq("invoice_id", invoiceId)
+    .eq("garage_id", garageId);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).reduce((total, payment) => total + Number(payment.amount), 0);
+}
+
 export async function getCreditNotesForInvoice(invoiceId: string): Promise<CreditNote[]> {
   const supabase = await createClient();
   const garageId = await getCurrentGarageId();
